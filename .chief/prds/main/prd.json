@@ -507,7 +507,8 @@
         "Environment detection / X-Client-Info tests"
       ],
       "priority": 25,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-026",
