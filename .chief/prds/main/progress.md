@@ -559,4 +559,67 @@
   - `websocket-client-simple` `connect` block pattern: use `client_ref = self` to capture reference, call private methods via `client_ref.send(:method)`
   - Reconnect module uses `Thread.new` with sleep for delayed reconnection; `reset_reconnect` kills the thread
   - Channel stub provides enough surface for Client to function (subscribe, unsubscribe, rejoin, handle_message, update_access_token); full API in US-022
+- Realtime channel API: BroadcastMethods, PresenceMethods, PostgresChangesMethods modules extracted for Channel; Presence class for state management
+- HTTP broadcast uses Faraday (added to gemspec); WebSocket broadcast uses existing `client.push`
+- Channel join payload includes `config` with `broadcast`, `presence`, and `postgres_changes` bindings
+- `ChannelMessageHandler` dispatches: broadcast, presence_diff, presence_state, postgres_changes events
+- Reduce `CyclomaticComplexity`: split `handle_message` into `handle_system_event` + `handle_realtime_event`
+- Use `SYSTEM_EVENTS` and `REALTIME_EVENTS` frozen constants with `include?` for event categorization
+- `on_broadcast(event, &callback)` stores bindings with `type: :broadcast`; dispatched by matching event name
+- `on_postgres_changes` normalizes events: `:insert` -> `"INSERT"`, `:all` / `:*` -> `"*"`
+- Presence class handles sync/sync_diff with join/leave/sync callbacks; errors in callbacks are swallowed
+- HTTP broadcast POST to `client.http_broadcast_url` with apikey + Authorization headers
+- Client exposes private `apikey` method for channel HTTP broadcast header construction
+---
+
+## 2026-02-10 - US-022
+- What was implemented: Realtime Channel API with broadcast, presence, and postgres_changes listeners; enhanced subscribe with bindings config; send_broadcast (WebSocket + HTTP); track/untrack; Presence state management
+- Files changed:
+  - `gems/supabase-realtime/lib/supabase/realtime.rb` (updated: added requires for new modules)
+  - `gems/supabase-realtime/lib/supabase/realtime/channel.rb` (updated: includes BroadcastMethods, PresenceMethods, PostgresChangesMethods; builds join config with bindings; initializes Presence)
+  - `gems/supabase-realtime/lib/supabase/realtime/channel_message_handler.rb` (updated: dispatches broadcast, presence_diff, presence_state, postgres_changes events; refactored for complexity)
+  - `gems/supabase-realtime/lib/supabase/realtime/client.rb` (updated: added private `apikey` method)
+  - `gems/supabase-realtime/lib/supabase/realtime/broadcast_methods.rb` (new: on_broadcast, send_broadcast with :websocket and :http types)
+  - `gems/supabase-realtime/lib/supabase/realtime/presence_methods.rb` (new: on_presence with :sync/:join/:leave events, track, untrack)
+  - `gems/supabase-realtime/lib/supabase/realtime/postgres_changes_methods.rb` (new: on_postgres_changes with event/schema/table/filter)
+  - `gems/supabase-realtime/lib/supabase/realtime/presence.rb` (new: Presence class with state management, sync/sync_diff, join/leave/sync callbacks)
+  - `gems/supabase-realtime/supabase-realtime.gemspec` (updated: added faraday ~> 2.0 dependency for HTTP broadcast)
+- **Learnings for future iterations:**
+  - Realtime gem now depends on both `websocket-client-simple` (WebSocket) AND `faraday` (HTTP broadcast)
+  - `Naming/BlockForwarding` cop: use `def method(&)` + `@obj.on_sync(&)` instead of named `&callback`
+  - Split `handle_message` into `handle_system_event` + `handle_realtime_event` to satisfy `CyclomaticComplexity` (max 7)
+  - `Style/MultipleComparison`: use `[event, WILDCARD].include?(binding[:event])` instead of `||` comparisons
+  - Channel bindings stored as array of hashes with `:type` key (:broadcast, :postgres_changes); dispatchers filter by type
+  - PostgreSQL change event normalization: `:insert` -> `"INSERT"`, `:update` -> `"UPDATE"`, `:delete` -> `"DELETE"`, `:all`/`:*` -> `"*"`
+  - Presence sync_diff applies joins (merge) and leaves (delete) to internal state hash; callbacks receive the diff data
+  - HTTP broadcast body format: `{ "messages" => [{ "topic" => ..., "event" => ..., "payload" => ... }] }`
+  - Client `remove_channel`, `remove_all_channels`, `get_channels` were already implemented in US-021
+---
+
+## 2026-02-10 - US-023
+- What was implemented: Comprehensive test suite for the Realtime client (169 total tests across 8 test files covering all acceptance criteria)
+- Files changed:
+  - `gems/supabase-realtime/spec/supabase/realtime/broadcast_spec.rb` (new: 12 tests for broadcast registration, dispatch, WebSocket/HTTP send, self-broadcast config)
+  - `gems/supabase-realtime/spec/supabase/realtime/presence_spec.rb` (new: 29 tests for Presence class sync/sync_diff/callbacks, channel presence integration, track/untrack, presence_diff/presence_state message handling)
+  - `gems/supabase-realtime/spec/supabase/realtime/postgres_changes_spec.rb` (new: 26 tests for CDC registration, event normalization, join config, INSERT/UPDATE/DELETE dispatch, schema/table/filter matching, wildcard)
+  - `gems/supabase-realtime/spec/supabase/realtime/push_spec.rb` (new: 14 tests for Push initialization, send_message, receive callbacks, trigger, ref correlation)
+  - `.chief/prds/main/prd.json` (marked US-023 as passes: true)
+- **Test coverage areas:**
+  - Connection tests (client_spec.rb): connect, disconnect, reconnect with backoff, state machine
+  - Heartbeat tests (client_spec.rb): send at interval, pending ref, reconnect on missed reply, ref matching
+  - Channel lifecycle tests (channel_spec.rb): join (phx_join), leave (phx_leave), rejoin after reconnect, state transitions
+  - Broadcast tests (broadcast_spec.rb): on_broadcast registration, dispatch to matching/wildcard/multiple listeners, WebSocket send, HTTP fallback with Faraday, apikey/authorization headers, self-broadcast config in join payload
+  - Presence tests (presence_spec.rb): Presence class sync/sync_diff, join/leave/sync callbacks, multiple callbacks, error swallowing, channel on_presence integration, track/untrack messages, presence_diff/presence_state message handling
+  - PostgreSQL changes tests (postgres_changes_spec.rb): on_postgres_changes with event normalization (:insert->INSERT, :all->*), schema/table/filter bindings, join config payload, INSERT/UPDATE/DELETE/wildcard dispatch, schema/table/event filtering, payload with/without data wrapper
+  - Send buffer tests (client_spec.rb): buffer when disconnected, send directly when open, flush on connection
+  - Auth token tests (client_spec.rb): set_auth propagates to channels, access_token in join payload
+  - Error handling tests (errors_spec.rb, channel_spec.rb): error hierarchy, channel join errors (phx_reply error), server errors (phx_error), phx_close
+  - Message routing tests (client_spec.rb): routes by topic, ignores different topics, heartbeat replies to heartbeat handler
+  - Ref correlation tests (push_spec.rb): monotonically increasing refs, ref in outgoing message, push/reply matching, late-registered callbacks
+- **Learnings for future iterations:**
+  - `Style/NilLambda` cop: use `proc { |_p| }` not `proc { |_p| nil }` (empty proc, not explicitly returning nil)
+  - `Lint/AmbiguousBlockAssociation`: when chaining `expect(...).to have_requested(...).with { block }`, restructure as `expect(a_request(...).with do...end).to have_been_made`
+  - `Style/BlockDelimiters`: use `do...end` not `{...}` for multi-line blocks (even in `.with` chaining)
+  - Existing client_spec.rb (58 tests) and channel_spec.rb (19 tests) from US-021/US-022 already covered connection, heartbeat, channel lifecycle, send buffer, auth token, and message routing; US-023 added broadcast, presence, postgres_changes, and push/ref tests
+  - WebMock header matching is case-insensitive; `"Apikey"` matches `"apikey"` header
 ---
