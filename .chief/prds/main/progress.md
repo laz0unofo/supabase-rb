@@ -35,6 +35,9 @@
 - Text search queries with spaces get URL-encoded to `%20` by URI.parse; account for encoding in assertions
 - Use `%r{}` instead of `//` for regexes containing slashes (Style/RegexpLiteral cop)
 - Split large test suites into multiple files by concern (client, crud, filters, transforms, errors) for manageability
+- `Style/KeywordParametersOrder`: required kwargs must come before optional kwargs in method signatures
+- Storage API pattern: BucketApi module extracted from Client, StorageFileApi returned by `from(bucket_id)`
+- Storage API endpoints: `/bucket` (list), `/bucket/{id}` (get/update/delete), `/bucket/{id}/empty` (empty)
 
 ---
 
@@ -208,4 +211,29 @@
   - Text search queries with spaces get URL-encoded by URI.parse; match against `%20` in query string assertions
   - Use `%r{}` instead of `//` for regexes with slashes (Style/RegexpLiteral cop)
   - Unused variable assignments in tests trigger `Lint/UselessAssignment`; omit the assignment if the return value isn't checked
+---
+
+## 2026-02-10 - US-009
+- What was implemented: Storage Client core with error hierarchy, bucket management API, and StorageFileApi stub
+- Files changed:
+  - `gems/supabase-storage/lib/supabase/storage.rb` (updated: added requires for errors and client)
+  - `gems/supabase-storage/lib/supabase/storage/errors.rb` (new: StorageError, StorageApiError, StorageUnknownError)
+  - `gems/supabase-storage/lib/supabase/storage/client.rb` (new: Client with from(), bucket management delegation, HTTP helpers)
+  - `gems/supabase-storage/lib/supabase/storage/bucket_api.rb` (new: BucketApi module with list_buckets, get_bucket, create_bucket, update_bucket, empty_bucket, delete_bucket)
+  - `gems/supabase-storage/lib/supabase/storage/storage_file_api.rb` (new: StorageFileApi stub class for file operations)
+  - `.chief/prds/main/prd.json` (marked US-009 as passes: true)
+- **Implementation details:**
+  - Error hierarchy follows same pattern as Functions: base StorageError < StandardError with `context:`, subclasses add `status:`
+  - StorageApiError for HTTP errors (non-2xx), StorageUnknownError for network/Faraday failures
+  - BucketApi module extracted from Client to keep classes under 100 lines (ClassLength cop)
+  - Client delegates bucket methods via `include BucketApi`; `from(bucket_id)` returns a StorageFileApi scoped to the bucket
+  - All bucket methods return `{ data:, error: }` pattern; rescue Faraday::Error for network failures
+  - JSON responses auto-parsed; error messages extracted from JSON `message` or `error` keys
+  - StorageFileApi is a stub with `initialize(url:, bucket_id:, headers: {}, fetch: nil)` ready for US-010/US-011
+- **Learnings for future iterations:**
+  - `Style/KeywordParametersOrder`: required kwargs must come before optional kwargs (e.g., `bucket_id:` before `headers: {}`)
+  - Storage API endpoints: `/bucket` for list, `/bucket/{id}` for get/update/delete, `/bucket/{id}/empty` for empty
+  - `create_bucket` sends both `id` and `name` fields (both set to the bucket_id)
+  - `update_bucket` requires `public:` field in the body
+  - Running specs from root requires `bundle exec rake supabase_storage:spec` (not direct `rspec` which lacks `-I` flags)
 ---
