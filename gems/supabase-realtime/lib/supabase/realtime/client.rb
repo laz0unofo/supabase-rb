@@ -236,6 +236,10 @@ module Supabase
         end
       end
 
+      def apikey
+        @params[:apikey] || @params["apikey"]
+      end
+
       def close_websocket
         @ws&.close
       rescue StandardError => e

@@ -3,13 +3,16 @@
 module Supabase
   module Realtime
     # Represents a channel subscription on the Realtime server.
-    # Full channel API (broadcast, presence, postgres_changes) is in US-022.
+    # Supports broadcast, presence, and postgres_changes listeners.
     class RealtimeChannel
       include ChannelMessageHandler
+      include BroadcastMethods
+      include PresenceMethods
+      include PostgresChangesMethods
 
       STATES = %i[closed joining joined leaving].freeze
 
-      attr_reader :topic, :client, :state, :join_ref
+      attr_reader :topic, :client, :state, :join_ref, :presence
 
       def initialize(topic, client:, config: {})
         @topic = topic
@@ -21,6 +24,7 @@ module Supabase
         @push_buffer = []
         @access_token = client.access_token
         @subscribe_callback = nil
+        @presence = Presence.new
       end
 
       def subscribe(&callback)
@@ -63,9 +67,26 @@ module Supabase
       end
 
       def build_join_payload
-        payload = { "config" => @config }
+        payload = { "config" => build_channel_config }
         payload["access_token"] = @access_token if @access_token
         payload
+      end
+
+      def build_channel_config
+        config = @config.dup
+        config["broadcast"] ||= {}
+        config["presence"] ||= {}
+        config["postgres_changes"] = build_postgres_changes_config
+        config
+      end
+
+      def build_postgres_changes_config
+        @bindings.select { |b| b[:type] == :postgres_changes }.map do |binding|
+          pg_config = { "event" => binding[:event], "schema" => binding[:schema] }
+          pg_config["table"] = binding[:table] if binding[:table]
+          pg_config["filter"] = binding[:filter] if binding[:filter]
+          pg_config
+        end
       end
 
       def build_leave_push

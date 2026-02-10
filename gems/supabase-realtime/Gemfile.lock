@@ -1,43 +1,9 @@
 PATH
-  remote: gems/supabase-auth
-  specs:
-    supabase-auth (0.1.0)
-      faraday (~> 2.0)
-
-PATH
-  remote: gems/supabase-functions
-  specs:
-    supabase-functions (0.1.0)
-      faraday (~> 2.0)
-
-PATH
-  remote: gems/supabase-postgrest
-  specs:
-    supabase-postgrest (0.1.0)
-      faraday (~> 2.0)
-
-PATH
-  remote: gems/supabase-realtime
+  remote: .
   specs:
     supabase-realtime (0.1.0)
       faraday (~> 2.0)
       websocket-client-simple (~> 0.8)
-
-PATH
-  remote: gems/supabase-storage
-  specs:
-    supabase-storage (0.1.0)
-      faraday (~> 2.0)
-
-PATH
-  remote: gems/supabase
-  specs:
-    supabase (0.1.0)
-      supabase-auth (~> 0.1)
-      supabase-functions (~> 0.1)
-      supabase-postgrest (~> 0.1)
-      supabase-realtime (~> 0.1)
-      supabase-storage (~> 0.1)
 
 GEM
   remote: https://rubygems.org/
@@ -128,12 +94,7 @@ DEPENDENCIES
   rake (~> 13.0)
   rspec (~> 3.0)
   rubocop (~> 1.0)
-  supabase!
-  supabase-auth!
-  supabase-functions!
-  supabase-postgrest!
   supabase-realtime!
-  supabase-storage!
   webmock (~> 3.0)
 
 BUNDLED WITH
