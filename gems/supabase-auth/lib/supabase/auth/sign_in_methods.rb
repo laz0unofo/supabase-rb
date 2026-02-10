@@ -8,6 +8,12 @@ module Supabase
     # Handles password, OAuth, OTP, ID token, and SSO authentication.
     module SignInMethods
       # Signs in with email/phone and password.
+      #
+      # @param password [String] the user's password
+      # @option options [String] :email the user's email address
+      # @option options [String] :phone the user's phone number
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def sign_in_with_password(password:, **options)
         body = build_password_body(password, options)
 
@@ -18,6 +24,13 @@ module Supabase
       end
 
       # Builds an OAuth authorize URL (no HTTP call).
+      #
+      # @option options [String] :provider the OAuth provider name (e.g. "google", "github")
+      # @option options [String] :redirect_to the URL to redirect to after authorization
+      # @option options [String] :scopes OAuth scopes to request
+      # @option options [Boolean] :skip_browser_redirect whether to skip automatic browser redirect
+      # @option options [Hash] :query_params additional query parameters to include in the URL
+      # @return [Hash{Symbol => Hash, nil}] { data: { provider: String, url: String }, error: nil }
       def sign_in_with_oauth(**options)
         params = build_oauth_base_params(options)
         append_oauth_pkce(params)
@@ -26,6 +39,14 @@ module Supabase
       end
 
       # Signs in with OTP (one-time password) via email or phone.
+      #
+      # @option options [String] :email the user's email address
+      # @option options [String] :phone the user's phone number
+      # @option options [Boolean] :should_create_user whether to create the user if they don't exist (default: true)
+      # @option options [Hash] :data additional user metadata
+      # @option options [String] :channel the messaging channel for phone OTP (default: "sms")
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] { data: { message_id: String | nil }, error: nil | AuthError }
       def sign_in_with_otp(**options)
         body = build_otp_body(options)
         append_pkce_params(body) if @flow_type == :pkce
@@ -37,6 +58,13 @@ module Supabase
       end
 
       # Signs in with an ID token from an external provider.
+      #
+      # @option options [String] :provider the external identity provider (e.g. "google", "apple")
+      # @option options [String] :token the ID token issued by the provider
+      # @option options [String] :access_token an optional provider access token
+      # @option options [String] :nonce an optional nonce for token verification
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def sign_in_with_id_token(**options)
         body = build_id_token_body(options)
 
@@ -47,6 +75,12 @@ module Supabase
       end
 
       # Signs in with SSO (Single Sign-On) via provider_id or domain.
+      #
+      # @option options [String] :provider_id the SSO provider identifier
+      # @option options [String] :domain the SSO domain to authenticate with
+      # @option options [String] :redirect_to the URL to redirect to after authentication
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] { data: { url: String | nil }, error: nil | AuthError }
       def sign_in_with_sso(**options)
         body = build_sso_body(options)
         append_pkce_params(body) if @flow_type == :pkce

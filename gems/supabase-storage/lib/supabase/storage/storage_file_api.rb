@@ -13,6 +13,12 @@ module Supabase
       include FileOperations
       include UrlOperations
 
+      # Creates a new file API instance for a specific bucket.
+      #
+      # @param url [String] the base URL of the Supabase Storage server
+      # @param bucket_id [String] the bucket identifier
+      # @param headers [Hash] default headers to include in every request
+      # @param fetch [Proc, nil] optional factory proc returning a Faraday connection
       def initialize(url:, bucket_id:, headers: {}, fetch: nil)
         @url = url.to_s.chomp("/")
         @headers = headers.dup

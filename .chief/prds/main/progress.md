@@ -659,3 +659,62 @@
   - Auth client `on_auth_state_change` fires `:initial_session` asynchronously; token propagation must handle this
   - `Hash#except` (Ruby 3.0+) is useful for passing options while excluding specific keys (e.g., `:params` from realtime_opts)
 ---
+
+## 2026-02-10 - US-025
+- What was implemented: Comprehensive test suite for the top-level Supabase client (64 tests covering all acceptance criteria)
+- Files changed:
+  - `gems/supabase/spec/supabase/client_spec.rb` (new: 64 tests covering CV, UC, SK, AM, FW, TP, SD, CD categories + error hierarchy, factory, token resolution, realtime config, URL port handling)
+  - `.chief/prds/main/prd.json` (marked US-025 as passes: true)
+- **Test coverage areas:**
+  - Constructor validation (CV-01 through CV-10): nil/empty/whitespace URL and key, non-HTTP URL, malformed URL, valid HTTP/HTTPS
+  - URL construction (UC-01 through UC-03): auth/rest/storage/functions URL derivation, Realtime wss/ws scheme conversion
+  - Storage key derivation (SK-01 through SK-03): hostname extraction (supabase.co, localhost, IP address)
+  - Auth mode tests (AM-01 through AM-05): session-based mode (auth client + event listener), third-party mode (no auth client, raises AuthNotAvailableError, sets initial realtime token)
+  - Auth-wrapped fetch (FW-01 through FW-06): apikey header, Authorization Bearer, X-Client-Info, global header merge, user override, functions accessor
+  - Token propagation (TP-01 through TP-06): signed_in, token_refreshed, signed_out, deduplication, irrelevant events, multi-step flow
+  - Sub-client delegation (SD-01 through SD-10): from/schema/rpc -> PostgREST, channel/get_channels/remove_channel/remove_all_channels -> Realtime, auth/storage/functions accessors
+  - Configuration defaults (CD-01 through CD-08): realtime apikey, db schema, auth defaults, auth override merge, realtime params merge, custom fetch, trailing slash
+  - X-Client-Info header, error hierarchy (SupabaseError, AuthNotAvailableError), Supabase.create_client factory, token resolution (callback, session, fallback), realtime config passthrough, URL port handling
+- **Learnings for future iterations:**
+  - Mock all 5 sub-clients with `instance_double` + `allow/receive` to prevent real initialization; Realtime needs `set_auth` stub, Auth needs `on_auth_state_change` and `get_session` stubs
+  - Token deduplication: `@last_realtime_token` starts as nil, so a nil token from signed_in event gets deduplicated (no propagation); only non-nil tokens or signed_out reset change the state
+  - `Lint/UselessAssignment`: don't assign `client = described_class.new(...)` when only verifying constructor side effects via `have_received`
+  - `Layout/FirstHashElementIndentation`: when passing multiline hash in method args, use `described_class.new(\n  url, key, realtime: {\n    ...` pattern
+---
+
+## 2026-02-10 - US-026
+- What was implemented: Documentation and examples - root README, per-gem READMEs, and YARD documentation on all public methods
+- Files created:
+  - `README.md` (new: root README with overview, installation, quick start, API overview, error handling, configuration, requirements)
+  - `gems/supabase-auth/README.md` (new: Auth gem README with sign-up/sign-in, session management, MFA, Admin, PKCE, error hierarchy)
+  - `gems/supabase-postgrest/README.md` (new: PostgREST gem README with CRUD, filters, transforms, result format)
+  - `gems/supabase-realtime/README.md` (new: Realtime gem README with broadcast, presence, CDC, connection lifecycle)
+  - `gems/supabase-storage/README.md` (new: Storage gem README with bucket management, file operations, URL operations, image transforms)
+  - `gems/supabase-functions/README.md` (new: Functions gem README with invoke, body auto-detection, response parsing, error hierarchy)
+- Files modified (YARD documentation added):
+  - `gems/supabase/lib/supabase/client.rb` (YARD on initialize with @param, @option)
+  - `gems/supabase/lib/supabase/sub_clients.rb` (YARD on auth, storage, functions with @return, @raise)
+  - `gems/supabase/lib/supabase/delegation.rb` (YARD on from, schema, rpc, channel, get_channels, remove_channel, remove_all_channels)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (YARD on initialize with @option)
+  - `gems/supabase-auth/lib/supabase/auth/sign_up_methods.rb` (YARD on sign_up, sign_in_anonymously)
+  - `gems/supabase-auth/lib/supabase/auth/sign_in_methods.rb` (YARD on sign_in_with_password, sign_in_with_oauth, sign_in_with_otp, sign_in_with_id_token, sign_in_with_sso)
+  - `gems/supabase-auth/lib/supabase/auth/verify_methods.rb` (YARD on verify_otp, exchange_code_for_session)
+  - `gems/supabase-auth/lib/supabase/auth/session_methods.rb` (YARD on set_session, refresh_session, sign_out)
+  - `gems/supabase-auth/lib/supabase/auth/user_methods.rb` (YARD on update_user, reset_password_for_email, reauthenticate, resend)
+  - `gems/supabase-auth/lib/supabase/auth/auth_state_events.rb` (YARD on on_auth_state_change with @yield/@yieldparam)
+  - `gems/supabase-storage/lib/supabase/storage/client.rb` (YARD on initialize, from)
+  - `gems/supabase-storage/lib/supabase/storage/storage_file_api.rb` (YARD on initialize)
+  - `gems/supabase-storage/lib/supabase/storage/bucket_api.rb` (YARD on all 6 bucket methods)
+  - `gems/supabase-storage/lib/supabase/storage/file_operations.rb` (YARD on upload, update, download, move, copy, remove, info, exists?)
+  - `gems/supabase-storage/lib/supabase/storage/url_operations.rb` (YARD on create_signed_url, create_signed_urls, create_signed_upload_url, upload_to_signed_url, get_public_url, list)
+  - `gems/supabase-realtime/lib/supabase/realtime/client.rb` (YARD on initialize, connect, disconnect, channel, set_auth, remove_channel, remove_all_channels, get_channels, make_ref, push, log)
+  - `gems/supabase-realtime/lib/supabase/realtime/channel.rb` (YARD on initialize, subscribe, unsubscribe, rejoin, update_access_token)
+  - `gems/supabase-realtime/lib/supabase/realtime/broadcast_methods.rb` (YARD on on_broadcast, send_broadcast)
+  - `gems/supabase-realtime/lib/supabase/realtime/presence_methods.rb` (YARD on on_presence, track, untrack)
+  - `gems/supabase-realtime/lib/supabase/realtime/postgres_changes_methods.rb` (YARD on on_postgres_changes)
+- **Learnings for future iterations:**
+  - YARD `@return` tags with long type signatures (e.g., `Hash{Symbol => Hash, nil}`) easily exceed 120 char line limit; use short descriptions like "result with data and error keys"
+  - YARD `@yieldparam` with long enum lists must be wrapped across multiple lines
+  - Background agents (Task tool) work well for parallelizing YARD doc additions across multiple gems
+  - Edit tool requires reading a file first in the same session context; delegating to agents avoids this limitation
+---

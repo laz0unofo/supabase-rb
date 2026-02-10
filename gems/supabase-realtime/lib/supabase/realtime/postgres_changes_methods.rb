@@ -4,6 +4,15 @@ module Supabase
   module Realtime
     # PostgreSQL CDC listener registration for RealtimeChannel.
     module PostgresChangesMethods
+      # Registers a callback for PostgreSQL change data capture events.
+      #
+      # @param event [Symbol] the change event type (:all, :*, :insert, :update, :delete)
+      # @param schema [String] the database schema to listen on (default: "public")
+      # @param table [String, nil] the table name to filter (nil for all tables)
+      # @param filter [String, nil] a PostgREST-style filter expression (e.g. "id=eq.1")
+      # @yield [payload] called when a matching database change occurs
+      # @yieldparam payload [Hash] the change event payload with record data
+      # @return [self]
       def on_postgres_changes(event:, schema: "public", table: nil, filter: nil, &callback)
         binding_config = build_postgres_binding(event, schema, table, filter)
         @bindings << { type: :postgres_changes, callback: callback, **binding_config }

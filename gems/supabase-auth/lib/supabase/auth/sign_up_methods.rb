@@ -7,6 +7,14 @@ module Supabase
     module SignUpMethods
       # Signs up a new user with email or phone and password.
       # Includes PKCE params when flow_type is :pkce.
+      #
+      # @param password [String] the password for the new user
+      # @option options [String] :email the user's email address
+      # @option options [String] :phone the user's phone number
+      # @option options [Hash] :data additional user metadata
+      # @option options [String] :channel the messaging channel for phone sign-up (default: "sms")
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def sign_up(password:, **options)
         unless options[:email] || options[:phone]
           return { data: { user: nil, session: nil },
@@ -23,6 +31,10 @@ module Supabase
       end
 
       # Signs in anonymously (creates a new anonymous user).
+      #
+      # @option options [Hash] :data additional user metadata
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def sign_in_anonymously(**options)
         body = {}
         body[:data] = options[:data] if options[:data]

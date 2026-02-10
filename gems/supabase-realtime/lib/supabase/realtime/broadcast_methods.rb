@@ -7,11 +7,23 @@ module Supabase
   module Realtime
     # Broadcast registration and sending methods for RealtimeChannel.
     module BroadcastMethods
+      # Registers a callback to receive broadcast messages for the given event.
+      #
+      # @param event [String] the broadcast event name to listen for
+      # @yield [payload] called when a matching broadcast is received
+      # @yieldparam payload [Hash] the broadcast message payload
+      # @return [self]
       def on_broadcast(event, &callback)
         @bindings << { type: :broadcast, event: event, callback: callback }
         self
       end
 
+      # Sends a broadcast message to all subscribers on this channel.
+      #
+      # @param event [String] the broadcast event name
+      # @param payload [Hash] the data to broadcast (default: {})
+      # @param type [Symbol] transport method, :websocket or :http (default: :websocket)
+      # @return [void]
       def send_broadcast(event:, payload: {}, type: :websocket)
         if type == :http
           send_http_broadcast(event, payload)

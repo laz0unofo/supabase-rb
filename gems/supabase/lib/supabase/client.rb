@@ -13,6 +13,19 @@ module Supabase
 
     CLIENT_INFO = "supabase-rb/#{VERSION}".freeze
 
+    # Initializes a new Supabase client with the given project URL and API key.
+    #
+    # @param url [String] the Supabase project URL (e.g. "https://xyzcompany.supabase.co")
+    # @param key [String] the Supabase project API key (anon or service_role)
+    # @option options [Proc] :access_token a callback returning a JWT for third-party auth
+    # @option options [Hash] :global global configuration shared across sub-clients
+    # @option options [Hash] :global :headers custom HTTP headers merged into every request
+    # @option options [Proc] :global :fetch custom fetch implementation for HTTP requests
+    # @option options [Hash] :db PostgREST client configuration
+    # @option options [String] :db :schema the default database schema to query
+    # @option options [Hash] :realtime Realtime client configuration
+    # @option options [Hash] :auth Auth client configuration
+    # @raise [ArgumentError] if url or key is missing or invalid
     def initialize(url, key, **options)
       validate_url!(url)
       validate_key!(key)

@@ -6,6 +6,14 @@ module Supabase
   module Storage
     # Signed URL generation, public URL construction, and file listing operations.
     module UrlOperations
+      # Creates a signed URL for temporary access to a file.
+      #
+      # @param path [String] the file path within the bucket
+      # @param expires_in [Integer] expiration time in seconds
+      # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
+      # @param transform [Hash, nil] optional image transformation parameters
+      # @return [Hash] { data: { signed_url: String }, error: nil }
+      #   on success, { data: nil, error: StorageApiError } on failure
       def create_signed_url(path, expires_in, download: nil, transform: nil)
         normalized = normalize_path(path)
         body = { expiresIn: expires_in }
@@ -19,6 +27,12 @@ module Supabase
         unknown_error_result(e)
       end
 
+      # Creates signed URLs for multiple files in a single request.
+      #
+      # @param paths [Array<String>] list of file paths within the bucket
+      # @param expires_in [Integer] expiration time in seconds
+      # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
+      # @return [Hash] { data: Array<Hash>, error: nil } on success, { data: nil, error: StorageApiError } on failure
       def create_signed_urls(paths, expires_in, download: nil)
         body = { expiresIn: expires_in, paths: paths.map { |p| "#{@bucket_id}/#{normalize_path(p)}" } }
         response = perform_json_request(:post, "#{@url}/object/sign", body)
@@ -30,6 +44,11 @@ module Supabase
         unknown_error_result(e)
       end
 
+      # Creates a signed URL for uploading a file without authentication.
+      #
+      # @param path [String] the file path within the bucket
+      # @param upsert [Boolean] whether to overwrite an existing file (default: false)
+      # @return [Hash] { data: { signed_url: String, token: String, path: String }, error: nil } on success
       def create_signed_upload_url(path, upsert: false)
         normalized = normalize_path(path)
         url = "#{@url}/object/upload/sign/#{@bucket_id}/#{normalized}"
@@ -44,6 +63,16 @@ module Supabase
         unknown_error_result(e)
       end
 
+      # Uploads a file using a previously created signed upload URL.
+      #
+      # @param path [String] the file path within the bucket
+      # @param token [String] the upload token from create_signed_upload_url
+      # @param body [String, IO, StringIO] the file content to upload
+      # @option options [String] :content_type MIME type of the file (default: "application/octet-stream")
+      # @option options [String, Integer] :cache_control max-age cache control value (default: "3600")
+      # @option options [Boolean] :upsert whether to overwrite an existing file
+      # @option options [Hash] :metadata custom metadata for the file
+      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageApiError } on failure
       def upload_to_signed_url(path, token, body, **options)
         normalized = normalize_path(path)
         url = "#{@url}/object/upload/sign/#{@bucket_id}/#{normalized}?token=#{URI.encode_www_form_component(token)}"
@@ -55,6 +84,12 @@ module Supabase
         unknown_error_result(e)
       end
 
+      # Constructs a public URL for a file in a public bucket.
+      #
+      # @param path [String] the file path within the bucket
+      # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
+      # @param transform [Hash, nil] optional image transformation parameters
+      # @return [Hash] { data: { public_url: String }, error: nil }
       def get_public_url(path, download: nil, transform: nil)
         normalized = normalize_path(path)
         base = transform ? "render/image/public" : "object/public"
@@ -62,6 +97,14 @@ module Supabase
         { data: { public_url: url }, error: nil }
       end
 
+      # Lists files in the bucket under the given path.
+      #
+      # @param path [String, nil] folder path to list (defaults to root)
+      # @option options [Integer] :limit maximum number of results (default: 100)
+      # @option options [Integer] :offset number of results to skip (default: 0)
+      # @option options [Hash] :sort_by sorting options with :column and :order keys
+      # @option options [String] :search filter files by name prefix
+      # @return [Hash] { data: Array<Hash>, error: nil } on success, { data: nil, error: StorageApiError } on failure
       def list(path = nil, **options)
         body = build_list_body(path, options)
         response = perform_json_request(:post, "#{@url}/object/list/#{@bucket_id}", body)

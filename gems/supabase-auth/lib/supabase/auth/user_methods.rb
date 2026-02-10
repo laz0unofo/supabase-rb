@@ -6,6 +6,13 @@ module Supabase
     # Handles update_user, reset_password_for_email, reauthenticate, and resend.
     module UserMethods
       # Updates the current user's attributes. Emits USER_UPDATED on success.
+      #
+      # @option options [String] :email the new email address
+      # @option options [String] :phone the new phone number
+      # @option options [String] :password the new password
+      # @option options [String] :nonce a nonce for reauthentication when changing password
+      # @option options [Hash] :data additional user metadata to update
+      # @return [Hash{Symbol => Hash, nil}] { data: { user: Hash | nil }, error: nil | AuthError }
       def update_user(**options)
         token = current_access_token
         unless token
@@ -25,6 +32,11 @@ module Supabase
       # Sends a password recovery email.
       # Includes PKCE code challenge when flow_type is :pkce,
       # and stores the verifier with /PASSWORD_RECOVERY suffix.
+      #
+      # @param email [String] the email address to send the recovery link to
+      # @param redirect_to [String, nil] the URL to redirect to after password reset
+      # @param captcha_token [String, nil] a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] { data: {}, error: nil | AuthError }
       def reset_password_for_email(email, redirect_to: nil, captcha_token: nil)
         body = { email: email }
         body[:redirect_to] = redirect_to if redirect_to
@@ -38,6 +50,8 @@ module Supabase
       end
 
       # Sends a reauthentication request for the current user.
+      #
+      # @return [Hash{Symbol => Hash, nil}] { data: Hash | nil, error: nil | AuthError }
       def reauthenticate
         token = current_access_token
         unless token
@@ -50,6 +64,11 @@ module Supabase
 
       # Resends an OTP or confirmation to the given email/phone.
       # Includes PKCE code challenge when flow_type is :pkce.
+      #
+      # @param type [String] the resend type (e.g. "signup", "sms", "email_change")
+      # @option options [String] :email the user's email address
+      # @option options [String] :phone the user's phone number
+      # @return [Hash{Symbol => Hash, nil}] { data: { message_id: String | nil }, error: nil | AuthError }
       def resend(type:, **options)
         body = { type: type }
         body[:email] = options[:email] if options[:email]

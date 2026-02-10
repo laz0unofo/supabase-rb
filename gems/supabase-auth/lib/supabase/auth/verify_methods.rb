@@ -6,6 +6,14 @@ module Supabase
     # Handles OTP verification and PKCE code exchange.
     module VerifyMethods
       # Verifies an OTP token. Saves session on success.
+      #
+      # @option options [String] :type the verification type (e.g. "sms", "email", "recovery", "invite")
+      # @option options [String] :email the user's email address
+      # @option options [String] :phone the user's phone number
+      # @option options [String] :token_hash the hashed OTP token
+      # @option options [String] :token the plain OTP token
+      # @option options [String] :captcha_token a captcha verification token
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def verify_otp(**options)
         body = build_verify_body(options)
 
@@ -16,6 +24,9 @@ module Supabase
       end
 
       # Exchanges a PKCE auth code for a session.
+      #
+      # @param auth_code [String] the authorization code received from the OAuth callback
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def exchange_code_for_session(auth_code)
         verifier = @storage.get_item("#{@storage_key}-code-verifier")
         unless verifier

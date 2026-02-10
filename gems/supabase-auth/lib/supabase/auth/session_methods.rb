@@ -7,6 +7,10 @@ module Supabase
     module SessionMethods
       # Sets a session from access_token and refresh_token.
       # Decodes JWT, validates structure, refreshes if expired, saves and emits events.
+      #
+      # @param access_token [String] a valid JWT access token
+      # @param refresh_token [String] the refresh token for obtaining new access tokens
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def set_session(access_token:, refresh_token:)
         @lock.with_lock do
           payload = JWT.decode(access_token)
@@ -22,6 +26,10 @@ module Supabase
       end
 
       # Refreshes the current session using the provided or stored refresh token.
+      #
+      # @param current_session [Session, nil] optional session whose
+      #   refresh token to use; falls back to stored session
+      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
       def refresh_session(current_session: nil)
         @lock.with_lock do
           token = current_session&.refresh_token
@@ -37,6 +45,9 @@ module Supabase
 
       # Signs the user out and removes the local session.
       # Scope: :global (all sessions), :local (only local), :others (all except current).
+      #
+      # @param scope [Symbol] the sign-out scope -- :global, :local, or :others
+      # @return [Hash{Symbol => nil, AuthError}] { error: nil | AuthError }
       def sign_out(scope: :global)
         token = current_access_token
         remove_session

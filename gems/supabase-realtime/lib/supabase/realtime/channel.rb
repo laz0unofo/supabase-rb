@@ -14,6 +14,11 @@ module Supabase
 
       attr_reader :topic, :client, :state, :join_ref, :presence
 
+      # Creates a new channel for the given topic.
+      #
+      # @param topic [String] the channel topic (e.g. "realtime:my-room")
+      # @param client [Client] the parent Realtime client
+      # @param config [Hash] channel configuration for broadcast, presence, and postgres_changes
       def initialize(topic, client:, config: {})
         @topic = topic
         @client = client
@@ -27,6 +32,12 @@ module Supabase
         @presence = Presence.new
       end
 
+      # Subscribes to this channel by sending a join request to the server.
+      #
+      # @yield [status, error] called when the channel join completes or fails
+      # @yieldparam status [Symbol] the subscription status
+      # @yieldparam error [Hash, nil] error details if the join failed
+      # @return [self]
       def subscribe(&callback)
         @state = :joining
         @join_ref = @client.make_ref
@@ -35,6 +46,9 @@ module Supabase
         self
       end
 
+      # Unsubscribes from this channel by sending a leave request to the server.
+      #
+      # @return [self]
       def unsubscribe
         @state = :leaving
         @client.push(build_leave_push)
@@ -42,6 +56,9 @@ module Supabase
         self
       end
 
+      # Rejoins the channel after a reconnection. No-op if channel is closed.
+      #
+      # @return [void]
       def rejoin
         return if @state == :closed
 
@@ -50,6 +67,10 @@ module Supabase
         @client.push(build_join_push)
       end
 
+      # Updates the access token used for authentication on this channel.
+      #
+      # @param token [String] the new JWT access token
+      # @return [void]
       def update_access_token(token)
         @access_token = token
       end

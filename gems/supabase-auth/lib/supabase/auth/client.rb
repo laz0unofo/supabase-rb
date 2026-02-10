@@ -37,6 +37,20 @@ module Supabase
 
       attr_reader :storage, :flow_type
 
+      # Initializes a new Auth client for communicating with the Supabase GoTrue service.
+      #
+      # @param url [String] the base URL of the GoTrue auth server
+      # @param headers [Hash] additional HTTP headers to include in every request
+      # @option options [String] :storage_key the key for persisting session
+      #   in storage (default: "supabase.auth.token")
+      # @option options [Boolean] :auto_refresh_token whether to auto-refresh expiring tokens (default: true)
+      # @option options [Boolean] :persist_session whether to persist the session to storage (default: true)
+      # @option options [Boolean] :detect_session_in_url whether to detect session info in URL (default: true)
+      # @option options [Symbol] :flow_type the auth flow type, :implicit or :pkce (default: :implicit)
+      # @option options [Object] :lock a custom lock instance for thread-safety
+      # @option options [Object] :storage a custom storage backend (default: MemoryStorage)
+      # @option options [Object] :fetch a custom fetch/HTTP handler
+      # @option options [Boolean] :debug enable debug logging (default: false)
       def initialize(url:, headers: {}, **options)
         @url = url.to_s.chomp("/")
         @headers = headers.dup
@@ -52,6 +66,8 @@ module Supabase
       end
 
       # Returns the currently stored session, refreshing if expired.
+      #
+      # @return [Hash{Symbol => Hash, nil}] { data: { session: Session | nil }, error: nil | AuthError }
       def get_session # rubocop:disable Naming/AccessorMethodName
         @lock.with_lock do
           session = load_session
@@ -67,6 +83,9 @@ module Supabase
       end
 
       # Returns the current user by making an HTTP call (never cached).
+      #
+      # @param jwt [String, nil] an optional JWT to use instead of the stored access token
+      # @return [Hash{Symbol => Hash, nil}] { data: { user: Hash | nil }, error: nil | AuthError }
       def get_user(jwt: nil)
         token = jwt || current_access_token
         return { data: { user: nil }, error: AuthSessionMissingError.new("No session found") } unless token

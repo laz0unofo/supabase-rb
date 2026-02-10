@@ -5,7 +5,10 @@ module Supabase
   # Provides lazy-initialized accessors for auth, storage, functions,
   # and shared postgrest/realtime clients.
   module SubClients
-    # Returns the Auth client. Raises AuthNotAvailableError in third-party auth mode.
+    # Returns the Auth client for user authentication operations.
+    #
+    # @return [Supabase::Auth::Client] the auth client instance
+    # @raise [AuthNotAvailableError] when using third-party auth via :access_token
     def auth
       if @access_token_callback
         raise AuthNotAvailableError, "Auth client is not available when using third-party auth (access_token)"
@@ -14,12 +17,17 @@ module Supabase
       @auth_client
     end
 
-    # Returns the shared Storage client.
+    # Returns the Storage client for file upload and management.
+    #
+    # @return [Supabase::Storage::Client] the storage client instance
     def storage
       @storage_client
     end
 
-    # Creates a new Functions client on each access (picks up latest headers).
+    # Creates a new Functions client for invoking Edge Functions.
+    # A fresh instance is returned on each call to pick up the latest auth headers.
+    #
+    # @return [Supabase::Functions::Client] a new functions client instance
     def functions
       Functions::Client.new(
         url: @functions_url,

@@ -18,6 +18,12 @@ module Supabase
       # Registers a block-based listener for auth state changes.
       # Returns a Subscription with id and unsubscribe method.
       # Fires INITIAL_SESSION once asynchronously with the current session.
+      #
+      # @yield [event, session] called when an auth state change occurs
+      # @yieldparam event [Symbol] the event type
+      #   (e.g. :signed_in, :signed_out, :token_refreshed)
+      # @yieldparam session [Session, nil] the current session, or nil on sign-out
+      # @return [Subscription] a subscription object with an +unsubscribe+ method to remove the listener
       def on_auth_state_change(&callback)
         id = SecureRandom.uuid
         listener = { id: id, callback: callback }

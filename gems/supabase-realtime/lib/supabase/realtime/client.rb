@@ -18,6 +18,17 @@ module Supabase
 
       attr_reader :state, :channels, :endpoint_url, :http_broadcast_url, :access_token
 
+      # Creates a new Realtime WebSocket client.
+      #
+      # @param url [String] the Realtime server WebSocket URL
+      # @param options [Hash] connection options
+      # @option options [Hash] :params connection parameters (must include :apikey)
+      # @option options [Integer] :timeout connection timeout in milliseconds (default: 10_000)
+      # @option options [Integer] :heartbeat_interval_ms heartbeat interval in milliseconds (default: 25_000)
+      # @option options [Proc, nil] :reconnect_after_ms custom reconnection delay strategy
+      # @option options [Logger, nil] :logger logger instance for debug output
+      # @option options [String, nil] :access_token JWT access token for authentication
+      # @raise [ArgumentError] if params[:apikey] is missing
       def initialize(url, **options)
         validate_params!(options)
         assign_options(url, options)
@@ -26,12 +37,20 @@ module Supabase
         @http_broadcast_url = derive_http_broadcast_url
       end
 
+      # Opens the WebSocket connection to the Realtime server.
+      # No-op if already connecting or connected.
+      #
+      # @return [void]
       def connect
         return if @state == :connecting || @state == :open
 
         do_connect
       end
 
+      # Gracefully closes the WebSocket connection, stopping heartbeat and reconnection.
+      # No-op if already closed.
+      #
+      # @return [void]
       def disconnect
         return if @state == :closed
 
@@ -43,6 +62,11 @@ module Supabase
         log(:info, "disconnected")
       end
 
+      # Creates a new channel subscription and registers it with this client.
+      #
+      # @param name [String] the channel name (will be prefixed with "realtime:")
+      # @param config [Hash] channel configuration (broadcast, presence, postgres_changes)
+      # @return [RealtimeChannel] the newly created channel
       def channel(name, config: {})
         topic = "realtime:#{name}"
         chan = RealtimeChannel.new(topic, client: self, config: config)
@@ -50,6 +74,10 @@ module Supabase
         chan
       end
 
+      # Sets the authentication token and propagates it to all channels.
+      #
+      # @param token [String] the new JWT access token
+      # @return [void]
       # rubocop:disable Naming/AccessorMethodName
       def set_auth(token)
         @access_token = token
@@ -57,22 +85,35 @@ module Supabase
       end
       # rubocop:enable Naming/AccessorMethodName
 
+      # Removes a channel, unsubscribing it first if currently joined.
+      #
+      # @param channel [RealtimeChannel] the channel to remove
+      # @return [RealtimeChannel, nil] the removed channel, or nil if not found
       def remove_channel(channel)
         channel.unsubscribe if channel.state == :joined
         @channels.delete(channel)
       end
 
+      # Removes all channels, unsubscribing any that are currently joined.
+      #
+      # @return [void]
       def remove_all_channels
         @channels.each { |ch| ch.unsubscribe if ch.state == :joined }
         @channels.clear
       end
 
+      # Returns a copy of all registered channels.
+      #
+      # @return [Array<RealtimeChannel>] a duplicate of the channels list
       # rubocop:disable Naming/AccessorMethodName
       def get_channels
         @channels.dup
       end
       # rubocop:enable Naming/AccessorMethodName
 
+      # Generates a unique, incrementing reference string for message tracking.
+      #
+      # @return [String] the next reference identifier
       def make_ref
         @mutex.synchronize do
           @ref_counter += 1
@@ -80,6 +121,10 @@ module Supabase
         end
       end
 
+      # Sends a message through the WebSocket, or buffers it if not connected.
+      #
+      # @param message [Hash] the message payload to send
+      # @return [void]
       def push(message)
         encoded = Serializer.encode(message)
         if @state == :open && @ws
@@ -89,6 +134,11 @@ module Supabase
         end
       end
 
+      # Logs a message with the given severity level, prefixed with "[Realtime]".
+      #
+      # @param level [Symbol] the log level (:info, :warn, :error, :debug)
+      # @param message [String] the message to log
+      # @return [void]
       def log(level, message)
         @logger&.send(level, "[Realtime] #{message}")
       end

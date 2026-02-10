@@ -523,7 +523,8 @@
         "YARD documentation on all public methods"
       ],
       "priority": 26,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     }
   ]
 }

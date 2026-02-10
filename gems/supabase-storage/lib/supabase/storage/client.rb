@@ -11,12 +11,21 @@ module Supabase
     class Client
       include BucketApi
 
+      # Creates a new Storage client.
+      #
+      # @param url [String] the base URL of the Supabase Storage server
+      # @param headers [Hash] default headers to include in every request
+      # @param fetch [Proc, nil] optional factory proc returning a Faraday connection
       def initialize(url:, headers: {}, fetch: nil)
         @url = url.to_s.chomp("/")
         @headers = headers.dup
         @fetch = fetch
       end
 
+      # Returns a StorageFileApi scoped to the given bucket.
+      #
+      # @param bucket_id [String] the bucket identifier
+      # @return [StorageFileApi] file API instance for the bucket
       def from(bucket_id)
         StorageFileApi.new(
           url: @url,
