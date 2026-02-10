@@ -8,6 +8,9 @@ require_relative "verify_methods"
 require_relative "session_methods"
 require_relative "auto_refresh"
 require_relative "user_methods"
+require_relative "auth_state_events"
+require_relative "mfa_api"
+require_relative "mfa_methods"
 
 module Supabase
   module Auth
@@ -24,6 +27,8 @@ module Supabase
       include SessionMethods
       include AutoRefresh
       include UserMethods
+      include AuthStateEvents
+      include MfaMethods
 
       EXPIRY_MARGIN_SECONDS = 90
       DEFAULT_LOCK_TIMEOUT = 10

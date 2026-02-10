@@ -310,7 +310,8 @@
         "unsubscribe stops event delivery to that listener"
       ],
       "priority": 16,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-017",
@@ -326,7 +327,8 @@
         "mfa.get_authenticator_assurance_level(jwt: nil) - returns { current_level:, next_level:, current_authentication_methods: }"
       ],
       "priority": 17,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-018",
