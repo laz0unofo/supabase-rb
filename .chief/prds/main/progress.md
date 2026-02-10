@@ -26,6 +26,8 @@
 - `Lint/UnusedBlockArgument`: prefix unused block args with `_` (e.g., `|_url, headers|`)
 - FilterBuilder#select adds `Prefer: return=representation` for mutation results
 - Bulk insert: `columns` param set from union of all Hash keys in array
+- Filter methods mutate `@url` in-place and return `self` for chaining; use modules (Filters, RangeFilters) to split methods
+- `Naming/PredicatePrefix` cop: use `rubocop:disable` inline for API-convention `is_*` methods that aren't predicates
 
 ---
 
@@ -122,4 +124,23 @@
   - FilterBuilder extends Builder so it inherits execute/schema headers/throw_on_error
   - Use `_url` prefix for unused block args to satisfy `Lint/UnusedBlockArgument`
   - `dup_with` pattern from Builder reused in FilterBuilder for immutable .select chaining
+---
+
+## 2026-02-10 - US-006
+- What was implemented: PostgREST Filter Builder with all comparison, pattern, regex, collection, range, text search, and compound filter methods
+- Files changed:
+  - `gems/supabase-postgrest/lib/supabase/postgrest/filters.rb` (new: Filters module with eq, neq, gt, gte, lt, lte, is, is_distinct, like, ilike, like_all_of, like_any_of, ilike_all_of, ilike_any_of, match, imatch, in, contains, contained_by, overlaps)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/range_filters.rb` (new: RangeFilters module with range_gt, range_gte, range_lt, range_lte, range_adjacent, text_search, match_filter, not, or, filter)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/filter_builder.rb` (updated: includes Filters and RangeFilters modules, added private helpers append_filter, quote_filter_value, format_containment)
+  - `gems/supabase-postgrest/lib/supabase/postgrest.rb` (updated: added requires for filters and range_filters)
+  - `.chief/prds/main/prd.json` (marked US-006 as passes: true)
+- **Learnings for future iterations:**
+  - `Naming/PredicatePrefix` cop flags `is_*` methods as predicates; use `rubocop:disable` inline for PostgREST API-convention method names like `is_distinct`
+  - Filter methods mutate `@url` in-place and return `self` for chaining (not immutable like `select`)
+  - Extract filter methods into multiple modules (Filters, RangeFilters) to stay under ClassLength 100 limit
+  - `in` filter: values with reserved chars (comma, parens, quotes) must be quoted with escaped double quotes
+  - `contains`/`contained_by`/`overlaps`: Array becomes `{a,b}`, Hash becomes JSON-serialized string
+  - `or` filter uses `key=(filters)` format; with `referenced_table`, key becomes `table.or`
+  - `match_filter` applies multiple `eq` filters from a Hash
+  - `text_search` operator mapping: nil->fts, :plain->plfts, :phrase->phfts, :websearch->wfts; config appended as `op(config)`
 ---

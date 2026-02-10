@@ -1,11 +1,17 @@
 # frozen_string_literal: true
 
+require_relative "filters"
+require_relative "range_filters"
+
 module Supabase
   module PostgREST
     # FilterBuilder is returned by CRUD operations on QueryBuilder.
-    # It provides filter/transform chaining (US-006, US-007) and
-    # the .select method for mutation results (return=representation).
+    # It provides filter/transform chaining and the .select method
+    # for mutation results (return=representation).
     class FilterBuilder < Builder
+      include Filters
+      include RangeFilters
+
       # Adds a select clause to a mutation result (INSERT/UPDATE/UPSERT/DELETE).
       # Sets Prefer: return=representation and adds ?select= query param.
       #
@@ -22,6 +28,11 @@ module Supabase
 
       private
 
+      def append_filter(column, operator, value)
+        append_query_param(@url, column.to_s, "#{operator}.#{value}")
+        self
+      end
+
       def append_query_param(url, key, value)
         existing = url.query
         param = "#{key}=#{value}"
@@ -32,6 +43,23 @@ module Supabase
         headers = builder.instance_variable_get(:@headers)
         existing = headers["Prefer"]
         headers["Prefer"] = existing ? "#{existing}, #{value}" : value
+      end
+
+      def quote_filter_value(value)
+        str = value.to_s
+        if str.match?(/[,()"]/)
+          "\"#{str.gsub('"', '\\"')}\""
+        else
+          str
+        end
+      end
+
+      def format_containment(value)
+        case value
+        when Array then "{#{value.join(",")}}"
+        when Hash then JSON.generate(value)
+        else value.to_s
+        end
       end
     end
   end
