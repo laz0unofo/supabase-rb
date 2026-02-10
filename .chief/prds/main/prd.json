@@ -58,7 +58,8 @@
         "Covers test scenarios AU-01 through AU-05, BH-01 through BH-08, RP-01 through RP-08, EH-01 through EH-08, RR-01 through RR-05, TC-01 through TC-05, HP-01 through HP-03, HM-01 through HM-05 from the spec"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-004",
