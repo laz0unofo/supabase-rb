@@ -81,18 +81,15 @@ module Supabase
       end
 
       def handle_response(response)
-        return api_error_result(response) unless (200..299).cover?(response.status)
-
-        { data: parse_json(response.body), error: nil }
+        raise_on_error(response)
+        parse_json(response.body)
       end
 
-      def api_error_result(response)
+      def raise_on_error(response)
+        return if (200..299).cover?(response.status)
+
         message = extract_error_message(response)
-        { data: nil, error: StorageApiError.new(message, status: response.status, context: response) }
-      end
-
-      def unknown_error_result(err)
-        { data: nil, error: StorageUnknownError.new(err.message, context: err) }
+        raise StorageApiError.new(message, status: response.status, context: response)
       end
 
       def extract_error_message(response)

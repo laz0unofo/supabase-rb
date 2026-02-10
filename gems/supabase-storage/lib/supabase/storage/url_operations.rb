@@ -12,19 +12,20 @@ module Supabase
       # @param expires_in [Integer] expiration time in seconds
       # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
       # @param transform [Hash, nil] optional image transformation parameters
-      # @return [Hash] { data: { signed_url: String }, error: nil }
-      #   on success, { data: nil, error: StorageApiError } on failure
+      # @return [Hash] { signed_url: String } on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def create_signed_url(path, expires_in, download: nil, transform: nil)
         normalized = normalize_path(path)
         body = { expiresIn: expires_in }
         body[:transform] = transform if transform
         response = perform_json_request(:post, "#{@url}/object/sign/#{@bucket_id}/#{normalized}", body)
-        return handle_response(response) unless (200..299).cover?(response.status)
+        raise_on_error(response)
 
         data = parse_json(response.body)
-        { data: { signed_url: build_full_signed_url(data["signedURL"], download) }, error: nil }
+        { signed_url: build_full_signed_url(data["signedURL"], download) }
       rescue Faraday::Error => e
-        unknown_error_result(e)
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Creates signed URLs for multiple files in a single request.
@@ -32,35 +33,39 @@ module Supabase
       # @param paths [Array<String>] list of file paths within the bucket
       # @param expires_in [Integer] expiration time in seconds
       # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
-      # @return [Hash] { data: Array<Hash>, error: nil } on success, { data: nil, error: StorageApiError } on failure
+      # @return [Array<Hash>] list of signed URL items on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def create_signed_urls(paths, expires_in, download: nil)
         body = { expiresIn: expires_in, paths: paths.map { |p| "#{@bucket_id}/#{normalize_path(p)}" } }
         response = perform_json_request(:post, "#{@url}/object/sign", body)
-        return handle_response(response) unless (200..299).cover?(response.status)
+        raise_on_error(response)
 
         data = parse_json(response.body)
-        { data: data.map { |item| build_signed_url_item(item, download) }, error: nil }
+        data.map { |item| build_signed_url_item(item, download) }
       rescue Faraday::Error => e
-        unknown_error_result(e)
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Creates a signed URL for uploading a file without authentication.
       #
       # @param path [String] the file path within the bucket
       # @param upsert [Boolean] whether to overwrite an existing file (default: false)
-      # @return [Hash] { data: { signed_url: String, token: String, path: String }, error: nil } on success
+      # @return [Hash] { signed_url: String, token: String, path: String } on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def create_signed_upload_url(path, upsert: false)
         normalized = normalize_path(path)
         url = "#{@url}/object/upload/sign/#{@bucket_id}/#{normalized}"
         headers = @headers.merge("Content-Type" => "application/json")
         headers["x-upsert"] = "true" if upsert
         response = perform_request(:post, url, nil, headers)
-        return handle_response(response) unless (200..299).cover?(response.status)
+        raise_on_error(response)
 
         data = parse_json(response.body)
-        { data: { signed_url: "#{@url}#{data["url"]}", token: data["token"], path: normalized }, error: nil }
+        { signed_url: "#{@url}#{data["url"]}", token: data["token"], path: normalized }
       rescue Faraday::Error => e
-        unknown_error_result(e)
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Uploads a file using a previously created signed upload URL.
@@ -68,11 +73,13 @@ module Supabase
       # @param path [String] the file path within the bucket
       # @param token [String] the upload token from create_signed_upload_url
       # @param body [String, IO, StringIO] the file content to upload
-      # @option options [String] :content_type MIME type of the file (default: "application/octet-stream")
-      # @option options [String, Integer] :cache_control max-age cache control value (default: "3600")
+      # @option options [String] :content_type MIME type of the file
+      # @option options [String, Integer] :cache_control max-age cache control value
       # @option options [Boolean] :upsert whether to overwrite an existing file
       # @option options [Hash] :metadata custom metadata for the file
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageApiError } on failure
+      # @return [Hash] upload result on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def upload_to_signed_url(path, token, body, **options)
         normalized = normalize_path(path)
         url = "#{@url}/object/upload/sign/#{@bucket_id}/#{normalized}?token=#{URI.encode_www_form_component(token)}"
@@ -81,7 +88,7 @@ module Supabase
         response = perform_request(:put, url, read_body(body), headers)
         handle_response(response)
       rescue Faraday::Error => e
-        unknown_error_result(e)
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Constructs a public URL for a file in a public bucket.
@@ -89,12 +96,12 @@ module Supabase
       # @param path [String] the file path within the bucket
       # @param download [Boolean, String, nil] triggers download; pass a String to set the filename
       # @param transform [Hash, nil] optional image transformation parameters
-      # @return [Hash] { data: { public_url: String }, error: nil }
+      # @return [Hash] { public_url: String }
       def get_public_url(path, download: nil, transform: nil)
         normalized = normalize_path(path)
         base = transform ? "render/image/public" : "object/public"
         url = append_query_params("#{@url}/#{base}/#{@bucket_id}/#{normalized}", download, transform)
-        { data: { public_url: url }, error: nil }
+        { public_url: url }
       end
 
       # Lists files in the bucket under the given path.
@@ -104,13 +111,15 @@ module Supabase
       # @option options [Integer] :offset number of results to skip (default: 0)
       # @option options [Hash] :sort_by sorting options with :column and :order keys
       # @option options [String] :search filter files by name prefix
-      # @return [Hash] { data: Array<Hash>, error: nil } on success, { data: nil, error: StorageApiError } on failure
+      # @return [Array<Hash>] list of file metadata on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def list(path = nil, **options)
         body = build_list_body(path, options)
         response = perform_json_request(:post, "#{@url}/object/list/#{@bucket_id}", body)
         handle_response(response)
       rescue Faraday::Error => e
-        unknown_error_result(e)
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       private

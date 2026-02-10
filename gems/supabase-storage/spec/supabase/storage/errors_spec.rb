@@ -5,18 +5,28 @@ RSpec.describe "Storage Error Hierarchy" do
   # EH: Error Handling
   # ---------------------------------------------------------------------------
   describe Supabase::Storage::StorageError do
-    it "EH-01: is a StandardError" do
-      expect(Supabase::Storage::StorageError.new).to be_a(StandardError)
+    it "EH-01: is a module mixin" do
+      expect(Supabase::Storage::StorageError).to be_a(Module)
+    end
+  end
+
+  describe Supabase::Storage::StorageBaseError do
+    it "is a Supabase::Error" do
+      expect(Supabase::Storage::StorageBaseError.new).to be_a(Supabase::Error)
+    end
+
+    it "includes StorageError" do
+      expect(Supabase::Storage::StorageBaseError.new).to be_a(Supabase::Storage::StorageError)
     end
 
     it "stores message and context" do
-      error = Supabase::Storage::StorageError.new("something failed", context: { detail: "info" })
+      error = Supabase::Storage::StorageBaseError.new("something failed", context: { detail: "info" })
       expect(error.message).to eq("something failed")
       expect(error.context).to eq({ detail: "info" })
     end
 
     it "defaults context to nil" do
-      error = Supabase::Storage::StorageError.new("oops")
+      error = Supabase::Storage::StorageBaseError.new("oops")
       expect(error.context).to be_nil
     end
   end
@@ -24,6 +34,10 @@ RSpec.describe "Storage Error Hierarchy" do
   describe Supabase::Storage::StorageApiError do
     it "EH-02: is a StorageError" do
       expect(Supabase::Storage::StorageApiError.new).to be_a(Supabase::Storage::StorageError)
+    end
+
+    it "is a Supabase::ApiError" do
+      expect(Supabase::Storage::StorageApiError.new).to be_a(Supabase::ApiError)
     end
 
     it "stores message, status, and context" do
@@ -44,6 +58,10 @@ RSpec.describe "Storage Error Hierarchy" do
       expect(Supabase::Storage::StorageUnknownError.new).to be_a(Supabase::Storage::StorageError)
     end
 
+    it "is a Supabase::NetworkError" do
+      expect(Supabase::Storage::StorageUnknownError.new).to be_a(Supabase::NetworkError)
+    end
+
     it "stores message, status, and context" do
       error = Supabase::Storage::StorageUnknownError.new("timeout", status: 0, context: "ex")
       expect(error.message).to eq("timeout")
@@ -56,51 +74,48 @@ RSpec.describe "Storage Error Hierarchy" do
     let(:base_url) { "https://example.supabase.co/storage/v1" }
     let(:client) { Supabase::Storage::Client.new(url: base_url, headers: {}) }
 
-    it "returns StorageApiError for JSON error responses" do
+    it "raises StorageApiError for JSON error responses" do
       stub_request(:get, "#{base_url}/bucket/bad")
         .to_return(status: 400, body: '{"message":"Bad request"}')
 
-      result = client.get_bucket("bad")
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].message).to eq("Bad request")
-      expect(result[:error].status).to eq(400)
+      expect { client.get_bucket("bad") }.to raise_error(Supabase::Storage::StorageApiError, "Bad request") { |e|
+        expect(e.status).to eq(400)
+      }
     end
 
-    it "returns StorageApiError for non-JSON error responses" do
+    it "raises StorageApiError for non-JSON error responses" do
       stub_request(:get, "#{base_url}/bucket/bad")
         .to_return(status: 500, body: "Internal Server Error")
 
-      result = client.get_bucket("bad")
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].message).to eq("Internal Server Error")
-      expect(result[:error].status).to eq(500)
+      expect { client.get_bucket("bad") }
+        .to raise_error(Supabase::Storage::StorageApiError, "Internal Server Error") { |e|
+          expect(e.status).to eq(500)
+        }
     end
 
     it "extracts error from 'error' JSON key" do
       stub_request(:get, "#{base_url}/bucket/bad")
         .to_return(status: 403, body: '{"error":"Access denied"}')
 
-      result = client.get_bucket("bad")
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].message).to eq("Access denied")
+      expect { client.get_bucket("bad") }.to raise_error(Supabase::Storage::StorageApiError, "Access denied")
     end
 
-    it "returns StorageUnknownError for network failures" do
+    it "raises StorageUnknownError for network failures" do
       stub_request(:get, "#{base_url}/bucket/test")
         .to_raise(Faraday::ConnectionFailed.new("connection reset"))
 
-      result = client.get_bucket("test")
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
-      expect(result[:error].message).to eq("connection reset")
+      expect do
+        client.get_bucket("test")
+      end.to raise_error(Supabase::Storage::StorageUnknownError, "connection reset")
     end
 
-    it "returns StorageUnknownError for timeout errors" do
+    it "raises StorageUnknownError for timeout errors" do
       stub_request(:get, "#{base_url}/bucket/test")
         .to_raise(Faraday::TimeoutError.new("request timed out"))
 
-      result = client.get_bucket("test")
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
-      expect(result[:error].message).to eq("request timed out")
+      expect do
+        client.get_bucket("test")
+      end.to raise_error(Supabase::Storage::StorageUnknownError, "request timed out")
     end
   end
 
@@ -151,32 +166,32 @@ RSpec.describe "Storage Error Hierarchy" do
 
     it "generates width param" do
       result = file_api.get_public_url("img.jpg", transform: { width: 300 })
-      expect(result[:data][:public_url]).to include("width=300")
+      expect(result[:public_url]).to include("width=300")
     end
 
     it "generates height param" do
       result = file_api.get_public_url("img.jpg", transform: { height: 200 })
-      expect(result[:data][:public_url]).to include("height=200")
+      expect(result[:public_url]).to include("height=200")
     end
 
     it "generates resize param" do
       result = file_api.get_public_url("img.jpg", transform: { resize: "cover" })
-      expect(result[:data][:public_url]).to include("resize=cover")
+      expect(result[:public_url]).to include("resize=cover")
     end
 
     it "generates quality param" do
       result = file_api.get_public_url("img.jpg", transform: { quality: 80 })
-      expect(result[:data][:public_url]).to include("quality=80")
+      expect(result[:public_url]).to include("quality=80")
     end
 
     it "generates format param" do
       result = file_api.get_public_url("img.jpg", transform: { format: "webp" })
-      expect(result[:data][:public_url]).to include("format=webp")
+      expect(result[:public_url]).to include("format=webp")
     end
 
     it "generates multiple transform params" do
       result = file_api.get_public_url("img.jpg", transform: { width: 200, height: 100, quality: 90 })
-      url = result[:data][:public_url]
+      url = result[:public_url]
       expect(url).to include("width=200")
       expect(url).to include("height=100")
       expect(url).to include("quality=90")
@@ -184,7 +199,7 @@ RSpec.describe "Storage Error Hierarchy" do
 
     it "uses render/image/public path for transforms" do
       result = file_api.get_public_url("img.jpg", transform: { width: 100 })
-      expect(result[:data][:public_url]).to start_with("#{base_url}/render/image/public/bucket/img.jpg")
+      expect(result[:public_url]).to start_with("#{base_url}/render/image/public/bucket/img.jpg")
     end
 
     it "uses render/image/authenticated path for download transforms" do

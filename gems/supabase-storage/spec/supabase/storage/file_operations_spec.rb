@@ -28,8 +28,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.upload("folder/file.txt", "hello world")
       expect(stub).to have_been_requested
-      expect(result[:data]["id"]).to eq("abc")
-      expect(result[:error]).to be_nil
+      expect(result["id"]).to eq("abc")
     end
 
     it "UL-02: uploads an IO body" do
@@ -40,7 +39,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.upload("file.bin", io)
       expect(stub).to have_been_requested
-      expect(result[:data]["id"]).to eq("def")
+      expect(result["id"]).to eq("def")
     end
 
     it "UL-03: sets custom cache control" do
@@ -108,24 +107,23 @@ RSpec.describe Supabase::Storage::StorageFileApi do
       expect(stub).to have_been_requested
     end
 
-    it "UL-10: returns error on HTTP failure" do
+    it "UL-10: raises error on HTTP failure" do
       stub_request(:post, "#{base_url}/object/#{bucket_id}/file.txt")
         .to_return(status: 400, body: '{"message":"Invalid file"}')
 
-      result = file_api.upload("file.txt", "data")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].message).to eq("Invalid file")
-      expect(result[:error].status).to eq(400)
+      expect { file_api.upload("file.txt", "data") }
+        .to raise_error(Supabase::Storage::StorageApiError, "Invalid file") { |e|
+          expect(e.status).to eq(400)
+        }
     end
 
-    it "UL-11: returns unknown error on network failure" do
+    it "UL-11: raises unknown error on network failure" do
       stub_request(:post, "#{base_url}/object/#{bucket_id}/file.txt")
         .to_raise(Faraday::ConnectionFailed.new("connection refused"))
 
-      result = file_api.upload("file.txt", "data")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
+      expect do
+        file_api.upload("file.txt", "data")
+      end.to raise_error(Supabase::Storage::StorageUnknownError)
     end
   end
 
@@ -143,8 +141,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.update("file.txt", "updated content", content_type: "text/plain")
       expect(stub).to have_been_requested
-      expect(result[:data]["id"]).to eq("8")
-      expect(result[:error]).to be_nil
+      expect(result["id"]).to eq("8")
     end
   end
 
@@ -157,8 +154,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         .to_return(status: 200, body: "file contents")
 
       result = file_api.download("folder/file.txt")
-      expect(result[:data]).to eq("file contents")
-      expect(result[:error]).to be_nil
+      expect(result).to eq("file contents")
     end
 
     it "DL-02: returns raw binary body" do
@@ -167,7 +163,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         .to_return(status: 200, body: binary)
 
       result = file_api.download("image.png")
-      expect(result[:data]).to eq(binary)
+      expect(result).to eq(binary)
     end
 
     it "DL-03: uses render/image/authenticated path when transform provided" do
@@ -176,26 +172,25 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.download("photo.jpg", transform: { width: 200, height: 100 })
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("transformed-image")
+      expect(result).to eq("transformed-image")
     end
 
-    it "DL-04: returns error on HTTP failure" do
+    it "DL-04: raises error on HTTP failure" do
       stub_request(:get, "#{base_url}/object/#{bucket_id}/missing.txt")
         .to_return(status: 404, body: '{"message":"Object not found"}')
 
-      result = file_api.download("missing.txt")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].status).to eq(404)
+      expect { file_api.download("missing.txt") }.to raise_error(Supabase::Storage::StorageApiError) { |e|
+        expect(e.status).to eq(404)
+      }
     end
 
-    it "DL-05: returns unknown error on network failure" do
+    it "DL-05: raises unknown error on network failure" do
       stub_request(:get, "#{base_url}/object/#{bucket_id}/file.txt")
         .to_raise(Faraday::TimeoutError.new("request timed out"))
 
-      result = file_api.download("file.txt")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
+      expect do
+        file_api.download("file.txt")
+      end.to raise_error(Supabase::Storage::StorageUnknownError)
     end
 
     it "DL-06: normalizes path for downloads" do
@@ -223,8 +218,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.move("old/path.txt", "new/path.txt")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "message" => "Successfully moved" })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "message" => "Successfully moved" })
     end
 
     it "FO-02: moves a file to a different bucket" do
@@ -239,7 +233,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.move("file.txt", "file.txt", destination_bucket: "other-bucket")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "message" => "Successfully moved" })
+      expect(result).to eq({ "message" => "Successfully moved" })
     end
   end
 
@@ -256,8 +250,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.copy("original.txt", "copy.txt")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "key" => "test-bucket/copy.txt" })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "key" => "test-bucket/copy.txt" })
     end
 
     it "FO-04: copies a file to a different bucket" do
@@ -272,7 +265,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.copy("file.txt", "backup.txt", destination_bucket: "archive")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "key" => "archive/backup.txt" })
+      expect(result).to eq({ "key" => "archive/backup.txt" })
     end
   end
 
@@ -287,9 +280,8 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.remove(["file1.txt", "folder/file2.txt"])
       expect(stub).to have_been_requested
-      expect(result[:data]).to be_an(Array)
-      expect(result[:data].length).to eq(2)
-      expect(result[:error]).to be_nil
+      expect(result).to be_an(Array)
+      expect(result.length).to eq(2)
     end
   end
 
@@ -303,9 +295,8 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.info("folder/file.txt")
       expect(stub).to have_been_requested
-      expect(result[:data]["name"]).to eq("file.txt")
-      expect(result[:data]["size"]).to eq(1024)
-      expect(result[:error]).to be_nil
+      expect(result["name"]).to eq("file.txt")
+      expect(result["size"]).to eq(1024)
     end
   end
 
@@ -315,8 +306,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         .to_return(status: 200)
 
       result = file_api.exists?("file.txt")
-      expect(result[:data]).to be true
-      expect(result[:error]).to be_nil
+      expect(result).to be true
     end
 
     it "returns false when file does not exist" do
@@ -324,17 +314,16 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         .to_return(status: 404)
 
       result = file_api.exists?("missing.txt")
-      expect(result[:data]).to be false
-      expect(result[:error]).to be_nil
+      expect(result).to be false
     end
 
-    it "returns unknown error on network failure" do
+    it "raises unknown error on network failure" do
       stub_request(:head, "#{base_url}/object/#{bucket_id}/file.txt")
         .to_raise(Faraday::ConnectionFailed.new("refused"))
 
-      result = file_api.exists?("file.txt")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
+      expect do
+        file_api.exists?("file.txt")
+      end.to raise_error(Supabase::Storage::StorageUnknownError)
     end
   end
 end

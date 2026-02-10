@@ -18,11 +18,10 @@ RSpec.describe Supabase::Storage::Client do
         )
 
       result = client.list_buckets
-      expect(result[:data]).to eq([
-                                    { "id" => "b1", "name" => "b1", "public" => false },
-                                    { "id" => "b2", "name" => "b2", "public" => true }
-                                  ])
-      expect(result[:error]).to be_nil
+      expect(result).to eq([
+                             { "id" => "b1", "name" => "b1", "public" => false },
+                             { "id" => "b2", "name" => "b2", "public" => true }
+                           ])
     end
 
     it "BM-02: lists buckets with options" do
@@ -34,25 +33,22 @@ RSpec.describe Supabase::Storage::Client do
       expect(stub).to have_been_requested
     end
 
-    it "BM-03: returns error on failure" do
+    it "BM-03: raises error on failure" do
       stub_request(:get, "#{base_url}/bucket")
         .to_return(status: 403, body: '{"message":"Forbidden"}')
 
-      result = client.list_buckets
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].message).to eq("Forbidden")
-      expect(result[:error].status).to eq(403)
+      expect { client.list_buckets }.to raise_error(Supabase::Storage::StorageApiError, "Forbidden") { |e|
+        expect(e.status).to eq(403)
+      }
     end
 
-    it "BM-04: returns unknown error on network failure" do
+    it "BM-04: raises unknown error on network failure" do
       stub_request(:get, "#{base_url}/bucket")
         .to_raise(Faraday::ConnectionFailed.new("connection refused"))
 
-      result = client.list_buckets
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageUnknownError)
-      expect(result[:error].message).to eq("connection refused")
+      expect do
+        client.list_buckets
+      end.to raise_error(Supabase::Storage::StorageUnknownError, "connection refused")
     end
   end
 
@@ -66,18 +62,16 @@ RSpec.describe Supabase::Storage::Client do
         )
 
       result = client.get_bucket("my-bucket")
-      expect(result[:data]).to eq({ "id" => "my-bucket", "name" => "my-bucket", "public" => true })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "id" => "my-bucket", "name" => "my-bucket", "public" => true })
     end
 
-    it "BM-06: returns error when bucket not found" do
+    it "BM-06: raises error when bucket not found" do
       stub_request(:get, "#{base_url}/bucket/missing")
         .to_return(status: 404, body: '{"message":"Bucket not found"}')
 
-      result = client.get_bucket("missing")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].status).to eq(404)
+      expect { client.get_bucket("missing") }.to raise_error(Supabase::Storage::StorageApiError) { |e|
+        expect(e.status).to eq(404)
+      }
     end
   end
 
@@ -89,8 +83,7 @@ RSpec.describe Supabase::Storage::Client do
 
       result = client.create_bucket("new-bucket")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "name" => "new-bucket" })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "name" => "new-bucket" })
     end
 
     it "BM-08: creates a bucket with all options" do
@@ -113,7 +106,7 @@ RSpec.describe Supabase::Storage::Client do
         allowed_mime_types: ["image/png", "image/jpeg"]
       )
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "name" => "public-bucket" })
+      expect(result).to eq({ "name" => "public-bucket" })
     end
   end
 
@@ -125,8 +118,7 @@ RSpec.describe Supabase::Storage::Client do
 
       result = client.update_bucket("my-bucket", public: true, file_size_limit: 10_000_000)
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "message" => "Successfully updated" })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "message" => "Successfully updated" })
     end
   end
 
@@ -138,7 +130,7 @@ RSpec.describe Supabase::Storage::Client do
 
       result = client.empty_bucket("my-bucket")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "message" => "Successfully emptied" })
+      expect(result).to eq({ "message" => "Successfully emptied" })
     end
   end
 
@@ -149,7 +141,7 @@ RSpec.describe Supabase::Storage::Client do
 
       result = client.delete_bucket("my-bucket")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "message" => "Successfully deleted" })
+      expect(result).to eq({ "message" => "Successfully deleted" })
     end
   end
 end

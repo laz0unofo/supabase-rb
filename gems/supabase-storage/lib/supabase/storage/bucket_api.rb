@@ -10,25 +10,28 @@ module Supabase
       # @option options [Integer] :offset number of results to skip
       # @option options [Hash] :sort_by sorting options
       # @option options [String] :search filter buckets by name
-      # @return [Hash] { data: Array, error: nil } on success,
-      #   { data: nil, error: StorageUnknownError } on failure
+      # @return [Array] list of bucket hashes on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def list_buckets(**options)
         body = build_list_buckets_body(options)
         response = perform_request(:get, "#{@url}/bucket", body)
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Retrieves details of a single bucket.
       #
       # @param bucket_id [String] the bucket identifier
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageUnknownError } on failure
+      # @return [Hash] response data on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def get_bucket(bucket_id)
         response = perform_request(:get, "#{@url}/bucket/#{bucket_id}", nil)
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Creates a new storage bucket.
@@ -37,7 +40,9 @@ module Supabase
       # @option options [Boolean] :public whether the bucket is publicly accessible
       # @option options [Integer] :file_size_limit maximum file size in bytes
       # @option options [Array<String>] :allowed_mime_types list of permitted MIME types
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageUnknownError } on failure
+      # @return [Hash] response data on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def create_bucket(bucket_id, **options)
         body = { id: bucket_id, name: bucket_id }
         body[:public] = options[:public] if options.key?(:public)
@@ -46,7 +51,7 @@ module Supabase
         response = perform_request(:post, "#{@url}/bucket", JSON.generate(body))
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Updates an existing storage bucket's configuration.
@@ -55,7 +60,9 @@ module Supabase
       # @option options [Boolean] :public whether the bucket is publicly accessible
       # @option options [Integer] :file_size_limit maximum file size in bytes
       # @option options [Array<String>] :allowed_mime_types list of permitted MIME types
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageUnknownError } on failure
+      # @return [Hash] response data on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def update_bucket(bucket_id, **options)
         body = { public: options[:public] }
         body[:file_size_limit] = options[:file_size_limit] if options[:file_size_limit]
@@ -63,29 +70,33 @@ module Supabase
         response = perform_request(:put, "#{@url}/bucket/#{bucket_id}", JSON.generate(body))
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Removes all files from a bucket without deleting the bucket itself.
       #
       # @param bucket_id [String] the bucket identifier
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageUnknownError } on failure
+      # @return [Hash] response data on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def empty_bucket(bucket_id)
         response = perform_request(:post, "#{@url}/bucket/#{bucket_id}/empty", JSON.generate({}))
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       # Deletes a storage bucket. The bucket must be empty first.
       #
       # @param bucket_id [String] the bucket identifier
-      # @return [Hash] { data: Hash, error: nil } on success, { data: nil, error: StorageUnknownError } on failure
+      # @return [Hash] response data on success
+      # @raise [StorageApiError] on HTTP error
+      # @raise [StorageUnknownError] on network failure
       def delete_bucket(bucket_id)
         response = perform_request(:delete, "#{@url}/bucket/#{bucket_id}", JSON.generate({}))
         handle_response(response)
       rescue Faraday::Error => e
-        { data: nil, error: StorageUnknownError.new(e.message, context: e) }
+        raise StorageUnknownError.new(e.message, context: e)
       end
 
       private

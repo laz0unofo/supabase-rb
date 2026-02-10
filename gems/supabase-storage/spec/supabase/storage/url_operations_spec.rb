@@ -21,10 +21,9 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_url("folder/file.txt", 3600)
-      expect(result[:data][:signed_url]).to eq(
+      expect(result[:signed_url]).to eq(
         "#{base_url}/object/sign/test-bucket/folder/file.txt?token=abc123"
       )
-      expect(result[:error]).to be_nil
     end
 
     it "SU-02: creates a signed URL with download param (boolean)" do
@@ -35,7 +34,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_url("file.txt", 3600, download: true)
-      expect(result[:data][:signed_url]).to include("&download=")
+      expect(result[:signed_url]).to include("&download=")
     end
 
     it "SU-03: creates a signed URL with download param (filename)" do
@@ -46,7 +45,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_url("file.txt", 3600, download: "custom.txt")
-      expect(result[:data][:signed_url]).to include("&download=custom.txt")
+      expect(result[:signed_url]).to include("&download=custom.txt")
     end
 
     it "SU-04: creates a signed URL with transform options" do
@@ -57,18 +56,18 @@ RSpec.describe Supabase::Storage::StorageFileApi do
                body: '{"signedURL":"/render/image/sign/test-bucket/image.jpg?token=abc"}'
              )
 
-      result = file_api.create_signed_url("image.jpg", 3600, transform: { width: 200, height: 100 })
+      file_api.create_signed_url("image.jpg", 3600, transform: { width: 200, height: 100 })
       expect(stub).to have_been_requested
-      expect(result[:error]).to be_nil
     end
 
-    it "SU-05: returns error on failure" do
+    it "SU-05: raises error on failure" do
       stub_request(:post, "#{base_url}/object/sign/#{bucket_id}/file.txt")
         .to_return(status: 400, body: '{"message":"Invalid path"}')
 
-      result = file_api.create_signed_url("file.txt", 3600)
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
+      expect { file_api.create_signed_url("file.txt", 3600) }
+        .to raise_error(Supabase::Storage::StorageApiError, "Invalid path") { |e|
+          expect(e.status).to eq(400)
+        }
     end
   end
 
@@ -88,11 +87,10 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_urls(["file1.txt", "file2.txt"], 3600)
-      expect(result[:data]).to be_an(Array)
-      expect(result[:data].length).to eq(2)
-      expect(result[:data][0][:signed_url]).to include("token=a")
-      expect(result[:data][1][:signed_url]).to include("token=b")
-      expect(result[:error]).to be_nil
+      expect(result).to be_an(Array)
+      expect(result.length).to eq(2)
+      expect(result[0][:signed_url]).to include("token=a")
+      expect(result[1][:signed_url]).to include("token=b")
     end
 
     it "SU-07: creates batch signed URLs with download" do
@@ -105,7 +103,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_urls(["file1.txt"], 3600, download: true)
-      expect(result[:data][0][:signed_url]).to include("&download=")
+      expect(result[0][:signed_url]).to include("&download=")
     end
   end
 
@@ -121,12 +119,11 @@ RSpec.describe Supabase::Storage::StorageFileApi do
         )
 
       result = file_api.create_signed_upload_url("folder/file.txt")
-      expect(result[:data][:signed_url]).to eq(
+      expect(result[:signed_url]).to eq(
         "#{base_url}/object/upload/sign/test-bucket/folder/file.txt?token=xyz"
       )
-      expect(result[:data][:token]).to eq("xyz")
-      expect(result[:data][:path]).to eq("folder/file.txt")
-      expect(result[:error]).to be_nil
+      expect(result[:token]).to eq("xyz")
+      expect(result[:path]).to eq("folder/file.txt")
     end
 
     it "sets x-upsert header when upsert is true" do
@@ -155,8 +152,7 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.upload_to_signed_url("file.txt", token, "file data")
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq({ "key" => "test-bucket/file.txt" })
-      expect(result[:error]).to be_nil
+      expect(result).to eq({ "key" => "test-bucket/file.txt" })
     end
 
     it "uploads with upsert flag" do
@@ -175,29 +171,28 @@ RSpec.describe Supabase::Storage::StorageFileApi do
   describe "#get_public_url" do
     it "PU-01: generates a public URL" do
       result = file_api.get_public_url("folder/file.txt")
-      expect(result[:data][:public_url]).to eq(
+      expect(result[:public_url]).to eq(
         "#{base_url}/object/public/#{bucket_id}/folder/file.txt"
       )
-      expect(result[:error]).to be_nil
     end
 
     it "PU-02: generates a public URL with download (boolean)" do
       result = file_api.get_public_url("file.txt", download: true)
-      expect(result[:data][:public_url]).to eq(
+      expect(result[:public_url]).to eq(
         "#{base_url}/object/public/#{bucket_id}/file.txt?download="
       )
     end
 
     it "PU-03: generates a public URL with download (filename)" do
       result = file_api.get_public_url("file.txt", download: "custom.txt")
-      expect(result[:data][:public_url]).to eq(
+      expect(result[:public_url]).to eq(
         "#{base_url}/object/public/#{bucket_id}/file.txt?download=custom.txt"
       )
     end
 
     it "PU-04: generates a public URL with image transforms" do
       result = file_api.get_public_url("image.jpg", transform: { width: 200, height: 100, quality: 80 })
-      url = result[:data][:public_url]
+      url = result[:public_url]
       expect(url).to start_with("#{base_url}/render/image/public/#{bucket_id}/image.jpg?")
       expect(url).to include("width=200")
       expect(url).to include("height=100")
@@ -206,14 +201,14 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
     it "normalizes path for public URLs" do
       result = file_api.get_public_url("/folder//file.txt/")
-      expect(result[:data][:public_url]).to eq(
+      expect(result[:public_url]).to eq(
         "#{base_url}/object/public/#{bucket_id}/folder/file.txt"
       )
     end
 
     it "generates public URL with both transform and download" do
       result = file_api.get_public_url("img.jpg", download: true, transform: { width: 50 })
-      url = result[:data][:public_url]
+      url = result[:public_url]
       expect(url).to start_with("#{base_url}/render/image/public/#{bucket_id}/img.jpg?")
       expect(url).to include("width=50")
       expect(url).to include("download=")
@@ -239,9 +234,8 @@ RSpec.describe Supabase::Storage::StorageFileApi do
 
       result = file_api.list
       expect(stub).to have_been_requested
-      expect(result[:data]).to be_an(Array)
-      expect(result[:data].length).to eq(2)
-      expect(result[:error]).to be_nil
+      expect(result).to be_an(Array)
+      expect(result.length).to eq(2)
     end
 
     it "FL-02: lists files in a specific path" do
@@ -280,14 +274,13 @@ RSpec.describe Supabase::Storage::StorageFileApi do
       expect(stub).to have_been_requested
     end
 
-    it "FL-06: returns error on listing failure" do
+    it "FL-06: raises error on listing failure" do
       stub_request(:post, "#{base_url}/object/list/#{bucket_id}")
         .to_return(status: 500, body: '{"message":"Internal error"}')
 
-      result = file_api.list
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Storage::StorageApiError)
-      expect(result[:error].status).to eq(500)
+      expect { file_api.list }.to raise_error(Supabase::Storage::StorageApiError, "Internal error") { |e|
+        expect(e.status).to eq(500)
+      }
     end
   end
 end

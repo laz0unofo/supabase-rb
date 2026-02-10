@@ -67,3 +67,33 @@
   - `AuthError` as a module allows classes to inherit from `Supabase::ApiError`/`Supabase::NetworkError` while still being identifiable as auth errors
   - The ErrorClassifier itself didn't need changes - it already returned error objects; the key was making HttpHandler raise them
 ---
+
+## 2026-02-10 - US-003
+- Converted all Storage client methods from `{ data:, error: }` hash returns to direct data returns with exception raising
+- Error hierarchy updated: `StorageApiError < Supabase::ApiError`, `StorageUnknownError < Supabase::NetworkError`
+- `StorageError` converted from class to module (mixin) so `is_a?(StorageError)` still works across all storage error classes
+- `StorageBaseError < Supabase::Error` added as concrete base class for non-HTTP/non-network storage errors
+- `handle_response` now calls `raise_on_error` + returns parsed JSON directly
+- Removed `api_error_result` and `unknown_error_result` helpers
+- All `rescue Faraday::Error` blocks now `raise StorageUnknownError` instead of returning hash
+- Special handling preserved: `download` returns raw `response.body`, `exists?` returns boolean
+- `get_public_url` returns `{ public_url: }` directly (no HTTP call, never errors)
+- All 4 spec files updated: `result[:data][:key]` -> `result[:key]`, error checks -> `raise_error` matchers
+- Used `raise_error(Class, message) { |e| ... }` pattern to satisfy rubocop `Style/MultilineBlockChain`
+- 95 specs pass, 0 rubocop offenses
+- Files changed (11 files):
+  - `gems/supabase-storage/lib/supabase/storage/errors.rb` (StorageError -> module, StorageBaseError, re-parented)
+  - `gems/supabase-storage/lib/supabase/storage/client.rb` (handle_response raises, removed api_error_result)
+  - `gems/supabase-storage/lib/supabase/storage/storage_file_api.rb` (handle_response/raise_on_error, removed helpers)
+  - `gems/supabase-storage/lib/supabase/storage/bucket_api.rb` (raise instead of return hash)
+  - `gems/supabase-storage/lib/supabase/storage/file_operations.rb` (return data directly, raise on error)
+  - `gems/supabase-storage/lib/supabase/storage/url_operations.rb` (return data directly, raise on error)
+  - `gems/supabase-storage/spec/supabase/storage/bucket_api_spec.rb`
+  - `gems/supabase-storage/spec/supabase/storage/errors_spec.rb`
+  - `gems/supabase-storage/spec/supabase/storage/file_operations_spec.rb`
+  - `gems/supabase-storage/spec/supabase/storage/url_operations_spec.rb`
+- **Learnings:**
+  - `raise_error` with `.and having_attributes` compound matcher doesn't work with block expectations in RSpec
+  - Use `raise_error(Class, message) { |e| expect(e.attr)... }` to check error + attributes without multiline block chain
+  - The module mixin pattern from US-002 applied cleanly to the storage gem
+---

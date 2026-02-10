@@ -36,28 +36,23 @@ module Supabase
   end
 
   module Storage
-    # Base error class for all Storage errors.
-    class StorageError < Supabase::Error
+    # Mixin module so all Storage errors respond to `is_a?(StorageError)`.
+    module StorageError
+    end
+
+    # Base error class for Storage errors that don't map to HTTP or network failures.
+    class StorageBaseError < Supabase::Error
+      include StorageError
     end
 
     # Raised when the Storage API returns an HTTP error response.
-    class StorageApiError < StorageError
-      attr_reader :status
-
-      def initialize(message = nil, status: nil, context: nil)
-        @status = status
-        super(message, context: context)
-      end
+    class StorageApiError < Supabase::ApiError
+      include StorageError
     end
 
     # Raised when an unknown error occurs (network failure, unexpected response).
-    class StorageUnknownError < StorageError
-      attr_reader :status
-
-      def initialize(message = nil, status: nil, context: nil)
-        @status = status
-        super(message, context: context)
-      end
+    class StorageUnknownError < Supabase::NetworkError
+      include StorageError
     end
   end
 end
