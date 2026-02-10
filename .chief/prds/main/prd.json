@@ -78,7 +78,8 @@
         "Immutability: from() clones URL/headers so multiple queries from the same builder are independent"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-005",
