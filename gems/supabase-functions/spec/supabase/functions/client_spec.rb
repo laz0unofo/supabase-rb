@@ -508,8 +508,8 @@ RSpec.describe Supabase::Functions::Client do
   # Error hierarchy
   # ---------------------------------------------------------------------------
   describe "error hierarchy" do
-    it "FunctionsError is the base error class" do
-      expect(Supabase::Functions::FunctionsError.superclass).to eq(StandardError)
+    it "FunctionsError inherits from Supabase::Error" do
+      expect(Supabase::Functions::FunctionsError.superclass).to eq(Supabase::Error)
     end
 
     it "FunctionsFetchError inherits from FunctionsError" do

@@ -8,8 +8,8 @@ RSpec.describe "PostgREST Error Handling and Builder" do
   # Error Hierarchy
   # ---------------------------------------------------------------------------
   describe Supabase::PostgREST::PostgrestError do
-    it "inherits from StandardError" do
-      expect(described_class.superclass).to eq(StandardError)
+    it "inherits from Supabase::Error" do
+      expect(described_class.superclass).to eq(Supabase::Error)
     end
 
     it "stores message, details, hint, and code" do
