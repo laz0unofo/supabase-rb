@@ -94,7 +94,8 @@
         "Mutation results support .select(columns) which adds Prefer: return=representation"
       ],
       "priority": 5,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-006",

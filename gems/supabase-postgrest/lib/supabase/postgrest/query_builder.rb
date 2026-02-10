@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
+require_relative "crud_builder"
+
 module Supabase
   module PostgREST
     # QueryBuilder is scoped to a specific table/view.
     # Returned by Client#from, it provides entry points for CRUD operations
-    # (select, insert, update, upsert, delete) which are implemented in US-005.
+    # (select, insert, update, upsert, delete).
     class QueryBuilder < Builder
+      include CrudBuilder
+
       attr_reader :relation
 
       # @param url [String] Base PostgREST URL (e.g., "http://localhost:3000/rest/v1")

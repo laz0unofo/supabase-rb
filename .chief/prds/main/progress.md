@@ -16,6 +16,16 @@
 - WebMock: do NOT chain multiple `.to_return` on same stub (they cycle sequentially); use one `stub_request(...).to_return(...)` per test
 - Rubocop `Naming/VariableNumber`: use normalcase for symbol numbers (`:ap_southeast1` not `:ap_southeast_1`)
 - Faraday test adapter blocks must be multiline `do...end`, not single-line, to satisfy `Style/BlockDelimiters`
+- PostgREST result hash: `{ data:, error:, count:, status:, status_text: }` (extends standard `{ data:, error: }` pattern)
+- PostgREST Builder uses `**options` splat in `initialize(url:, **options)` to stay under 5 param limit
+- Extract ResponseHandler module from Builder to stay under ClassLength 100 lines
+- `Naming/MethodParameterName` requires 3+ chars; use `function_name` not `fn`
+- `Lint/DuplicateBranch`: avoid `elsif` and `else` branches with same body; merge them
+- CRUD methods return FilterBuilder (not QueryBuilder); QueryBuilder is the entry point, FilterBuilder chains further
+- CrudBuilder module extracted from QueryBuilder to keep classes under 100 lines; pattern: extract `{Thing}Builder` module
+- `Lint/UnusedBlockArgument`: prefix unused block args with `_` (e.g., `|_url, headers|`)
+- FilterBuilder#select adds `Prefer: return=representation` for mutation results
+- Bulk insert: `columns` param set from union of all Hash keys in array
 
 ---
 
@@ -67,4 +77,49 @@
   - Use direct `stub_request(:method, url).to_return(...)` in each test for clarity; avoid helpers with default responses
   - Rubocop `Naming/VariableNumber` applies to symbols too: `:ap_southeast1` not `:ap_southeast_1`
   - Faraday test adapter: use multiline `do...end` blocks to satisfy `Style/BlockDelimiters` and `Style/SingleLineDoEndBlock`
+---
+
+## 2026-02-10 - US-004
+- What was implemented: PostgREST Client core builder infrastructure with error hierarchy, builder base class, query builder, response handler, and client with from/schema/rpc
+- Files changed:
+  - `gems/supabase-postgrest/lib/supabase/postgrest.rb` (added requires for errors, builder, query_builder, client)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/errors.rb` (new: PostgrestError with message, details, hint, code)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/response_handler.rb` (new: extracted response parsing, error handling, count parsing)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/builder.rb` (new: base Builder class with execute, schema headers, throw_on_error, dup_with)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/query_builder.rb` (new: QueryBuilder < Builder scoped to table)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/client.rb` (new: Client with from(), schema(), rpc())
+  - `.chief/prds/main/prd.json` (marked US-004 as passes: true)
+- **Learnings for future iterations:**
+  - Builder uses `initialize(url:, **options)` pattern to keep params under 5; QueryBuilder passes options through via `super(url:, **options)`
+  - ResponseHandler module extracted from Builder to keep class under 100 lines; includes build_result, parse_error, parse_data, parse_count, handle_fetch_error
+  - PostgREST result hash adds count, status, status_text beyond the standard { data:, error: } pattern
+  - `Naming/MethodParameterName` cop requires 3+ character param names; renamed `fn` to `function_name`
+  - `Lint/DuplicateBranch`: text/csv and else both returned response.body, merged into single else branch
+  - Builder#dup_with is the immutability mechanism: dups URL and headers to ensure independence
+  - Schema headers: Accept-Profile for GET/HEAD, Content-Profile for POST/PATCH/DELETE
+---
+
+## 2026-02-10 - US-005
+- What was implemented: PostgREST CRUD operations (select, insert, update, upsert, delete) with FilterBuilder for mutation chaining
+- Files changed:
+  - `gems/supabase-postgrest/lib/supabase/postgrest/crud_builder.rb` (new: CrudBuilder module with select, insert, update, upsert, delete methods)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/filter_builder.rb` (new: FilterBuilder < Builder with .select for return=representation)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/query_builder.rb` (updated: includes CrudBuilder module)
+  - `gems/supabase-postgrest/lib/supabase/postgrest.rb` (updated: added requires for filter_builder and crud_builder)
+  - `.chief/prds/main/prd.json` (marked US-005 as passes: true)
+- **Implementation details:**
+  - QueryBuilder includes CrudBuilder module with select, insert, update, upsert, delete
+  - Each CRUD method returns a FilterBuilder (for chaining filters/transforms in US-006/US-007)
+  - FilterBuilder#select adds `Prefer: return=representation` and `?select=` for mutation results
+  - Bulk insert (Array of Hashes) auto-sets `columns` query param from union of all Hash keys
+  - Upsert sets `Prefer: resolution=merge-duplicates` (default) or `resolution=ignore-duplicates`
+  - `default_to_null: false` adds `Prefer: missing=default`
+  - `on_conflict` sets the `on_conflict` query param for upserts
+  - `count` option adds `Prefer: count={algorithm}` header for all operations
+  - `head: true` on select uses HEAD method
+- **Learnings for future iterations:**
+  - Extract CRUD methods into CrudBuilder module to keep QueryBuilder small (rubocop ClassLength)
+  - FilterBuilder extends Builder so it inherits execute/schema headers/throw_on_error
+  - Use `_url` prefix for unused block args to satisfy `Lint/UnusedBlockArgument`
+  - `dup_with` pattern from Builder reused in FilterBuilder for immutable .select chaining
 ---
