@@ -52,10 +52,8 @@ module Supabase
       # Generates an email link (signup, magiclink, recovery, etc.).
       def generate_link(**options)
         body = build_generate_link_body(options)
-        result = @client.send(:admin_request, :post, "/admin/generate_link", body: body)
-        return result if result[:error]
-
-        build_generate_link_result(result[:data])
+        data = @client.send(:admin_request, :post, "/admin/generate_link", body: body)
+        build_generate_link_result(data)
       end
 
       # Signs out a user by their JWT (admin).
@@ -105,7 +103,7 @@ module Supabase
 
       def build_generate_link_result(data)
         properties = extract_link_properties(data)
-        { data: { properties: properties, user: data }, error: nil }
+        { properties: properties, user: data }
       end
 
       def extract_link_properties(data)

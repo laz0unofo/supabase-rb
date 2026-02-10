@@ -67,33 +67,30 @@ module Supabase
 
       # Returns the currently stored session, refreshing if expired.
       #
-      # @return [Hash{Symbol => Hash, nil}] { data: { session: Session | nil }, error: nil | AuthError }
+      # @return [Hash] with :session key (Session or nil)
       def get_session # rubocop:disable Naming/AccessorMethodName
         @lock.with_lock do
           session = load_session
-          return { data: { session: nil }, error: nil } unless session
+          return { session: nil } unless session
 
-          return { data: { session: session }, error: nil } unless session_needs_refresh?(session)
+          return { session: session } unless session_needs_refresh?(session)
 
-          refresh_result = refresh_access_token(session.refresh_token)
-          return refresh_result if refresh_result[:error]
-
-          { data: { session: refresh_result[:data][:session] }, error: nil }
+          refreshed = refresh_access_token(session.refresh_token)
+          { session: refreshed }
         end
       end
 
       # Returns the current user by making an HTTP call (never cached).
       #
       # @param jwt [String, nil] an optional JWT to use instead of the stored access token
-      # @return [Hash{Symbol => Hash, nil}] { data: { user: Hash | nil }, error: nil | AuthError }
+      # @return [Hash] with :user key
+      # @raise [AuthSessionMissingError] when no session exists and no JWT provided
       def get_user(jwt: nil)
         token = jwt || current_access_token
-        return { data: { user: nil }, error: AuthSessionMissingError.new("No session found") } unless token
+        raise AuthSessionMissingError, "No session found" unless token
 
-        result = request(:get, "/user", jwt: token)
-        return result if result[:error]
-
-        { data: { user: result[:data] }, error: nil }
+        data = request(:get, "/user", jwt: token)
+        { user: data }
       end
 
       private

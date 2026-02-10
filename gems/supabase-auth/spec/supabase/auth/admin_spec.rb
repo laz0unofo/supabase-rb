@@ -29,8 +29,7 @@ RSpec.describe "Auth Admin API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = admin.create_user(email: "new@example.com", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data]["email"]).to eq("new@example.com")
+      expect(result["email"]).to eq("new@example.com")
     end
 
     it "AD-02: creates a user with metadata and confirmation flags" do
@@ -44,13 +43,12 @@ RSpec.describe "Auth Admin API" do
         .to_return(status: 200, body: '{"id":"user-new"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = admin.create_user(
+      admin.create_user(
         email: "new@example.com",
         user_metadata: { "name" => "Test" },
         app_metadata: { "role" => "admin" },
         email_confirm: true
       )
-      expect(result[:error]).to be_nil
     end
 
     it "AD-03: creates a user with phone" do
@@ -59,8 +57,7 @@ RSpec.describe "Auth Admin API" do
         .to_return(status: 200, body: '{"id":"user-phone"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = admin.create_user(phone: "+1234567890", phone_confirm: true)
-      expect(result[:error]).to be_nil
+      admin.create_user(phone: "+1234567890", phone_confirm: true)
     end
 
     it "AD-04: lists users without pagination" do
@@ -70,9 +67,8 @@ RSpec.describe "Auth Admin API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = admin.list_users
-      expect(result[:error]).to be_nil
-      expect(result[:data]).to be_a(Array)
-      expect(result[:data].length).to eq(2)
+      expect(result).to be_a(Array)
+      expect(result.length).to eq(2)
     end
 
     it "AD-05: lists users with pagination" do
@@ -80,8 +76,7 @@ RSpec.describe "Auth Admin API" do
         .to_return(status: 200, body: '[{"id":"u1"}]',
                    headers: { "Content-Type" => "application/json" })
 
-      result = admin.list_users(page: 1, per_page: 10)
-      expect(result[:error]).to be_nil
+      admin.list_users(page: 1, per_page: 10)
     end
 
     it "AD-06: gets a user by ID" do
@@ -90,8 +85,7 @@ RSpec.describe "Auth Admin API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = admin.get_user_by_id("user-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data]["id"]).to eq("user-123")
+      expect(result["id"]).to eq("user-123")
     end
 
     it "AD-07: updates a user by ID" do
@@ -101,8 +95,7 @@ RSpec.describe "Auth Admin API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = admin.update_user_by_id("user-123", email: "updated@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data]["email"]).to eq("updated@example.com")
+      expect(result["email"]).to eq("updated@example.com")
     end
 
     it "AD-08: deletes a user (hard delete)" do
@@ -110,8 +103,7 @@ RSpec.describe "Auth Admin API" do
         .with(body: hash_including("should_soft_delete" => false))
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = admin.delete_user("user-123")
-      expect(result[:error]).to be_nil
+      admin.delete_user("user-123")
     end
 
     it "AD-09: deletes a user (soft delete)" do
@@ -119,8 +111,7 @@ RSpec.describe "Auth Admin API" do
         .with(body: hash_including("should_soft_delete" => true))
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = admin.delete_user("user-123", should_soft_delete: true)
-      expect(result[:error]).to be_nil
+      admin.delete_user("user-123", should_soft_delete: true)
     end
 
     it "AD-10: invites a user by email" do
@@ -129,8 +120,7 @@ RSpec.describe "Auth Admin API" do
         .to_return(status: 200, body: '{"id":"user-invited","email":"invite@example.com"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = admin.invite_user_by_email("invite@example.com")
-      expect(result[:error]).to be_nil
+      admin.invite_user_by_email("invite@example.com")
     end
 
     it "AD-11: invites a user with data and redirect_to" do
@@ -143,10 +133,9 @@ RSpec.describe "Auth Admin API" do
         .to_return(status: 200, body: '{"id":"user-invited"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = admin.invite_user_by_email(
+      admin.invite_user_by_email(
         "invite@example.com", data: { "role" => "member" }, redirect_to: "https://example.com/welcome"
       )
-      expect(result[:error]).to be_nil
     end
 
     it "AD-12: generates a link" do
@@ -166,12 +155,11 @@ RSpec.describe "Auth Admin API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = admin.generate_link(type: "signup", email: "test@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:properties][:action_link]).to eq("https://example.com/verify?token=abc")
-      expect(result[:data][:properties][:email_otp]).to eq("123456")
-      expect(result[:data][:properties][:hashed_token]).to eq("hash-abc")
-      expect(result[:data][:properties][:verification_type]).to eq("signup")
-      expect(result[:data][:user]["id"]).to eq("user-123")
+      expect(result[:properties][:action_link]).to eq("https://example.com/verify?token=abc")
+      expect(result[:properties][:email_otp]).to eq("123456")
+      expect(result[:properties][:hashed_token]).to eq("hash-abc")
+      expect(result[:properties][:verification_type]).to eq("signup")
+      expect(result[:user]["id"]).to eq("user-123")
     end
 
     it "AD-13: admin sign out with JWT" do
@@ -183,8 +171,7 @@ RSpec.describe "Auth Admin API" do
         )
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = admin.sign_out(custom_jwt, scope: :global)
-      expect(result[:error]).to be_nil
+      admin.sign_out(custom_jwt, scope: :global)
     end
   end
 
@@ -196,8 +183,7 @@ RSpec.describe "Auth Admin API" do
         .with(headers: { "Authorization" => "Bearer service-key" })
         .to_return(status: 200, body: "[]", headers: { "Content-Type" => "application/json" })
 
-      result = client.admin.list_users
-      expect(result[:error]).to be_nil
+      client.admin.list_users
     end
 
     it "falls back to Authorization header when no apikey" do
@@ -209,8 +195,7 @@ RSpec.describe "Auth Admin API" do
         .with(headers: { "Authorization" => "Bearer my-service-key" })
         .to_return(status: 200, body: "[]", headers: { "Content-Type" => "application/json" })
 
-      result = client.admin.list_users
-      expect(result[:error]).to be_nil
+      client.admin.list_users
     end
   end
 end

@@ -59,8 +59,7 @@ RSpec.describe Supabase::Auth::Client do
       token = build_jwt
       client.set_session(access_token: token, refresh_token: "rt")
 
-      result = client.get_user
-      expect(result[:error]).to be_nil
+      client.get_user
     end
   end
 
@@ -105,8 +104,7 @@ RSpec.describe Supabase::Auth::Client do
 
     it "returns nil session when no session exists" do
       result = client.get_session
-      expect(result[:data][:session]).to be_nil
-      expect(result[:error]).to be_nil
+      expect(result[:session]).to be_nil
     end
 
     it "returns stored session when not expired" do
@@ -118,9 +116,8 @@ RSpec.describe Supabase::Auth::Client do
       client.sign_in_with_password(email: "test@example.com", password: "password123")
 
       result = client.get_session
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
-      expect(result[:data][:session].access_token).to eq(token)
-      expect(result[:error]).to be_nil
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session].access_token).to eq(token)
     end
 
     it "auto-refreshes expired session" do
@@ -144,8 +141,7 @@ RSpec.describe Supabase::Auth::Client do
                    headers: { "Content-Type" => "application/json" })
 
       result = fresh_client.get_session
-      expect(result[:data][:session].access_token).to eq(fresh_token)
-      expect(result[:error]).to be_nil
+      expect(result[:session].access_token).to eq(fresh_token)
     end
   end
 
@@ -166,14 +162,13 @@ RSpec.describe Supabase::Auth::Client do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.get_user
-      expect(result[:data][:user]["id"]).to eq("user-123")
-      expect(result[:error]).to be_nil
+      expect(result[:user]["id"]).to eq("user-123")
     end
 
-    it "returns error when no session exists" do
-      result = client.get_user
-      expect(result[:data][:user]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Auth::AuthSessionMissingError)
+    it "raises error when no session exists" do
+      expect do
+        client.get_user
+      end.to raise_error(Supabase::Auth::AuthSessionMissingError)
     end
 
     it "uses provided JWT over session token" do
@@ -185,7 +180,7 @@ RSpec.describe Supabase::Auth::Client do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.get_user(jwt: custom_jwt)
-      expect(result[:data][:user]["id"]).to eq("custom-user")
+      expect(result[:user]["id"]).to eq("custom-user")
     end
   end
 end

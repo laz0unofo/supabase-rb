@@ -10,14 +10,12 @@ module Supabase
       #
       # @param access_token [String] a valid JWT access token
       # @param refresh_token [String] the refresh token for obtaining new access tokens
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthInvalidTokenResponseError] when the access token is invalid
       def set_session(access_token:, refresh_token:)
         @lock.with_lock do
           payload = JWT.decode(access_token)
-          unless payload
-            return { data: { user: nil, session: nil },
-                     error: AuthInvalidTokenResponseError.new("Invalid access token") }
-          end
+          raise AuthInvalidTokenResponseError, "Invalid access token" unless payload
 
           return refresh_and_save(refresh_token, :token_refreshed) if token_expired?(payload)
 
@@ -29,15 +27,13 @@ module Supabase
       #
       # @param current_session [Session, nil] optional session whose
       #   refresh token to use; falls back to stored session
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthSessionMissingError] when no refresh token is available
       def refresh_session(current_session: nil)
         @lock.with_lock do
           token = current_session&.refresh_token
           token ||= load_session&.refresh_token
-          unless token
-            return { data: { user: nil, session: nil },
-                     error: AuthSessionMissingError.new("No current session") }
-          end
+          raise AuthSessionMissingError, "No current session" unless token
 
           refresh_and_save(token, :token_refreshed)
         end
@@ -47,19 +43,18 @@ module Supabase
       # Scope: :global (all sessions), :local (only local), :others (all except current).
       #
       # @param scope [Symbol] the sign-out scope -- :global, :local, or :others
-      # @return [Hash{Symbol => nil, AuthError}] { error: nil | AuthError }
+      # @return [nil]
+      # @raise [AuthApiError] on API errors
       def sign_out(scope: :global)
         token = current_access_token
         remove_session
         stop_auto_refresh
         emit_event(:signed_out, nil)
 
-        return { error: nil } if scope == :local || token.nil?
+        return if scope == :local || token.nil?
 
-        result = request(:post, "/logout", jwt: token, body: { scope: scope.to_s })
-        return { error: result[:error] } if result[:error]
-
-        { error: nil }
+        request(:post, "/logout", jwt: token, body: { scope: scope.to_s })
+        nil
       end
 
       private
@@ -80,16 +75,13 @@ module Supabase
         save_session(session)
         emit_event(:signed_in, session)
         emit_event(:token_refreshed, session)
-        { data: { user: session.user, session: session }, error: nil }
+        { user: session.user, session: session }
       end
 
       def refresh_and_save(refresh_token, event)
-        result = refresh_access_token(refresh_token)
-        return result if result[:error]
-
-        session = result[:data][:session]
+        session = refresh_access_token(refresh_token)
         emit_event(event, session)
-        { data: { user: session.user, session: session }, error: nil }
+        { user: session.user, session: session }
       end
     end
   end

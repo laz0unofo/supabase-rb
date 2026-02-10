@@ -46,8 +46,7 @@ RSpec.describe "Auth MFA API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.mfa.enroll(factor_type: :totp)
-      expect(result[:error]).to be_nil
-      expect(result[:data]["id"]).to eq("factor-123")
+      expect(result["id"]).to eq("factor-123")
     end
 
     it "enrolls a TOTP factor with friendly_name and issuer" do
@@ -57,8 +56,7 @@ RSpec.describe "Auth MFA API" do
                    body: '{"id":"factor-456","type":"totp"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.mfa.enroll(factor_type: :totp, friendly_name: "MyApp", issuer: "MyIssuer")
-      expect(result[:error]).to be_nil
+      client.mfa.enroll(factor_type: :totp, friendly_name: "MyApp", issuer: "MyIssuer")
     end
 
     it "enrolls a phone factor" do
@@ -68,14 +66,14 @@ RSpec.describe "Auth MFA API" do
                    body: '{"id":"factor-phone","type":"phone"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.mfa.enroll(factor_type: :phone, phone: "+1234567890")
-      expect(result[:error]).to be_nil
+      client.mfa.enroll(factor_type: :phone, phone: "+1234567890")
     end
 
-    it "returns error when no session" do
+    it "raises error when no session" do
       no_session_client = Supabase::Auth::Client.new(url: base_url, headers: default_headers)
-      result = no_session_client.mfa.enroll(factor_type: :totp)
-      expect(result[:error]).to be_a(Supabase::Auth::AuthSessionMissingError)
+      expect do
+        no_session_client.mfa.enroll(factor_type: :totp)
+      end.to raise_error(Supabase::Auth::AuthSessionMissingError)
     end
   end
 
@@ -91,8 +89,7 @@ RSpec.describe "Auth MFA API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.mfa.challenge(factor_id: "factor-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data]["id"]).to eq("challenge-456")
+      expect(result["id"]).to eq("challenge-456")
     end
   end
 
@@ -114,8 +111,7 @@ RSpec.describe "Auth MFA API" do
       client.on_auth_state_change { |event, _session| events << event }
       sleep(0.1)
 
-      result = client.mfa.verify(factor_id: "factor-123", challenge_id: "chal-456", code: "123456")
-      expect(result[:error]).to be_nil
+      client.mfa.verify(factor_id: "factor-123", challenge_id: "chal-456", code: "123456")
       expect(events).to include(:mfa_challenge_verified)
     end
   end
@@ -130,8 +126,7 @@ RSpec.describe "Auth MFA API" do
         .to_return(status: 200, body: '{"id":"factor-123"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.mfa.unenroll(factor_id: "factor-123")
-      expect(result[:error]).to be_nil
+      client.mfa.unenroll(factor_id: "factor-123")
     end
   end
 
@@ -152,8 +147,7 @@ RSpec.describe "Auth MFA API" do
         .to_return(status: 200, body: JSON.generate(session_response("access_token" => aal2_token)),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.mfa.challenge_and_verify(factor_id: "factor-123", code: "654321")
-      expect(result[:error]).to be_nil
+      client.mfa.challenge_and_verify(factor_id: "factor-123", code: "654321")
     end
   end
 
@@ -177,10 +171,9 @@ RSpec.describe "Auth MFA API" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.mfa.list_factors
-      expect(result[:error]).to be_nil
-      expect(result[:data][:all].length).to eq(3)
-      expect(result[:data][:totp].length).to eq(1) # Only verified
-      expect(result[:data][:phone].length).to eq(1)
+      expect(result[:all].length).to eq(3)
+      expect(result[:totp].length).to eq(1) # Only verified
+      expect(result[:phone].length).to eq(1)
     end
   end
 
@@ -197,9 +190,8 @@ RSpec.describe "Auth MFA API" do
       client.sign_in_with_password(email: "test@example.com", password: "password123")
 
       result = client.mfa.get_authenticator_assurance_level
-      expect(result[:error]).to be_nil
-      expect(result[:data][:current_level]).to eq(:aal1)
-      expect(result[:data][:next_level]).to eq(:aal2)
+      expect(result[:current_level]).to eq(:aal1)
+      expect(result[:next_level]).to eq(:aal2)
     end
 
     it "returns aal2 when MFA method present in AMR" do
@@ -214,18 +206,16 @@ RSpec.describe "Auth MFA API" do
       client.sign_in_with_password(email: "test@example.com", password: "password123")
 
       result = client.mfa.get_authenticator_assurance_level
-      expect(result[:error]).to be_nil
-      expect(result[:data][:current_level]).to eq(:aal2)
-      expect(result[:data][:next_level]).to eq(:aal2)
+      expect(result[:current_level]).to eq(:aal2)
+      expect(result[:next_level]).to eq(:aal2)
     end
 
     it "returns nil levels when no session" do
       client = Supabase::Auth::Client.new(url: base_url, headers: default_headers)
 
       result = client.mfa.get_authenticator_assurance_level
-      expect(result[:error]).to be_nil
-      expect(result[:data][:current_level]).to be_nil
-      expect(result[:data][:next_level]).to be_nil
+      expect(result[:current_level]).to be_nil
+      expect(result[:next_level]).to be_nil
     end
   end
 end

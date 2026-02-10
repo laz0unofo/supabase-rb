@@ -16,8 +16,8 @@
         "Unit tests cover instantiation and attribute accessors for all error classes"
       ],
       "priority": 1,
-      "passes": false,
-      "inProgress": true
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-002",
@@ -37,7 +37,8 @@
         "All auth specs pass"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-003",

@@ -13,35 +13,29 @@ module Supabase
       # @option options [String] :token_hash the hashed OTP token
       # @option options [String] :token the plain OTP token
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthApiError] on API errors
       def verify_otp(**options)
         body = build_verify_body(options)
-
-        result = request(:post, "/verify", body: body)
-        return result if result[:error]
-
-        handle_session_response(result[:data])
+        data = request(:post, "/verify", body: body)
+        handle_session_response(data)
       end
 
       # Exchanges a PKCE auth code for a session.
       #
       # @param auth_code [String] the authorization code received from the OAuth callback
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthPKCEGrantCodeExchangeError] when no code verifier is found
       def exchange_code_for_session(auth_code)
         verifier = @storage.get_item("#{@storage_key}-code-verifier")
-        unless verifier
-          return { data: { user: nil, session: nil },
-                   error: AuthPKCEGrantCodeExchangeError.new("No code verifier found in storage") }
-        end
+        raise AuthPKCEGrantCodeExchangeError, "No code verifier found in storage" unless verifier
 
         clean_verifier = verifier.sub(%r{/PASSWORD_RECOVERY\z}, "")
         @storage.remove_item("#{@storage_key}-code-verifier")
 
-        result = request(:post, "/token?grant_type=pkce",
-                         body: { auth_code: auth_code, code_verifier: clean_verifier })
-        return result if result[:error]
-
-        handle_exchange_response(result[:data], verifier)
+        data = request(:post, "/token?grant_type=pkce",
+                       body: { auth_code: auth_code, code_verifier: clean_verifier })
+        handle_exchange_response(data, verifier)
       end
 
       private
@@ -66,7 +60,7 @@ module Supabase
           emit_event(:signed_in, session)
         end
 
-        { data: { user: session.user, session: session }, error: nil }
+        { user: session.user, session: session }
       end
     end
   end

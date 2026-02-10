@@ -35,9 +35,8 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_password(email: "test@example.com", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
-      expect(result[:data][:user]).to be_a(Hash)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:user]).to be_a(Hash)
     end
 
     it "SI-02: signs in with phone and password" do
@@ -47,8 +46,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_password(phone: "+1234567890", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
     it "SI-03: saves session after sign-in" do
@@ -59,18 +57,18 @@ RSpec.describe "Auth Sign In" do
       client.sign_in_with_password(email: "test@example.com", password: "password123")
 
       result = client.get_session
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
-    it "SI-04: returns error on invalid credentials" do
+    it "SI-04: raises error on invalid credentials" do
       stub_request(:post, "#{base_url}/token?grant_type=password")
         .to_return(status: 400,
                    body: '{"message":"Invalid login credentials","error_code":"invalid_credentials"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_in_with_password(email: "test@example.com", password: "wrong")
-      expect(result[:error]).to be_a(Supabase::Auth::AuthApiError)
-      expect(result[:error].message).to eq("Invalid login credentials")
+      expect do
+        client.sign_in_with_password(email: "test@example.com", password: "wrong")
+      end.to raise_error(Supabase::Auth::AuthApiError, "Invalid login credentials")
     end
   end
 
@@ -79,31 +77,30 @@ RSpec.describe "Auth Sign In" do
 
     it "OA-01: builds OAuth URL with provider" do
       result = client.sign_in_with_oauth(provider: "google")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:provider]).to eq("google")
-      expect(result[:data][:url]).to include("#{base_url}/authorize")
-      expect(result[:data][:url]).to include("provider=google")
+      expect(result[:provider]).to eq("google")
+      expect(result[:url]).to include("#{base_url}/authorize")
+      expect(result[:url]).to include("provider=google")
     end
 
     it "OA-02: includes redirect_to in OAuth URL" do
       result = client.sign_in_with_oauth(provider: "github", redirect_to: "https://example.com/callback")
-      expect(result[:data][:url]).to include("redirect_to=")
-      expect(result[:data][:url]).to include("example.com")
+      expect(result[:url]).to include("redirect_to=")
+      expect(result[:url]).to include("example.com")
     end
 
     it "OA-03: includes scopes in OAuth URL" do
       result = client.sign_in_with_oauth(provider: "google", scopes: "email profile")
-      expect(result[:data][:url]).to include("scopes=email+profile")
+      expect(result[:url]).to include("scopes=email+profile")
     end
 
     it "OA-04: includes query_params in OAuth URL" do
       result = client.sign_in_with_oauth(provider: "google", query_params: { "access_type" => "offline" })
-      expect(result[:data][:url]).to include("access_type=offline")
+      expect(result[:url]).to include("access_type=offline")
     end
 
     it "OA-05: includes skip_browser_redirect in OAuth URL" do
       result = client.sign_in_with_oauth(provider: "google", skip_browser_redirect: true)
-      expect(result[:data][:url]).to include("skip_browser_redirect=true")
+      expect(result[:url]).to include("skip_browser_redirect=true")
     end
   end
 
@@ -112,8 +109,8 @@ RSpec.describe "Auth Sign In" do
 
     it "includes code_challenge in OAuth URL" do
       result = client.sign_in_with_oauth(provider: "google")
-      expect(result[:data][:url]).to include("code_challenge=")
-      expect(result[:data][:url]).to include("code_challenge_method=s256")
+      expect(result[:url]).to include("code_challenge=")
+      expect(result[:url]).to include("code_challenge_method=s256")
 
       verifier = client.storage.get_item("supabase.auth.token-code-verifier")
       expect(verifier).to be_a(String)
@@ -131,8 +128,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_otp(email: "test@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:message_id]).to eq("msg-123")
+      expect(result[:message_id]).to eq("msg-123")
     end
 
     it "OT-02: sends OTP to phone" do
@@ -141,8 +137,7 @@ RSpec.describe "Auth Sign In" do
         .to_return(status: 200, body: '{"message_id":"msg-456"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_in_with_otp(phone: "+1234567890")
-      expect(result[:error]).to be_nil
+      client.sign_in_with_otp(phone: "+1234567890")
     end
 
     it "OT-03: includes should_create_user option" do
@@ -171,8 +166,7 @@ RSpec.describe "Auth Sign In" do
         .to_return(status: 200, body: '{"message_id":"msg-pkce"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = pkce_client.sign_in_with_otp(email: "test@example.com")
-      expect(result[:error]).to be_nil
+      pkce_client.sign_in_with_otp(email: "test@example.com")
     end
   end
 
@@ -186,8 +180,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_id_token(provider: "google", token: "id-token-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
     it "IT-02: includes optional nonce and access_token" do
@@ -196,10 +189,9 @@ RSpec.describe "Auth Sign In" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_in_with_id_token(
+      client.sign_in_with_id_token(
         provider: "apple", token: "id-tok", nonce: "nonce-123", access_token: "at-123"
       )
-      expect(result[:error]).to be_nil
     end
   end
 
@@ -213,8 +205,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_sso(domain: "example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:url]).to eq("https://sso.example.com/auth")
+      expect(result[:url]).to eq("https://sso.example.com/auth")
     end
 
     it "SS-02: signs in with SSO using provider_id" do
@@ -224,8 +215,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_sso(provider_id: "sso-provider-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:url]).to eq("https://sso.provider.com/login")
+      expect(result[:url]).to eq("https://sso.provider.com/login")
     end
   end
 
@@ -239,8 +229,7 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.verify_otp(type: "magiclink", token_hash: "hash-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
     it "verifies email OTP with email and token" do
@@ -249,8 +238,7 @@ RSpec.describe "Auth Sign In" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.verify_otp(type: "signup", email: "test@example.com", token: "123456")
-      expect(result[:error]).to be_nil
+      client.verify_otp(type: "signup", email: "test@example.com", token: "123456")
     end
   end
 
@@ -268,18 +256,18 @@ RSpec.describe "Auth Sign In" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.exchange_code_for_session("auth-code-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
 
       # Verifier should be consumed
       expect(client.storage.get_item("supabase.auth.token-code-verifier")).to be_nil
     end
 
-    it "returns error when no code verifier in storage" do
+    it "raises error when no code verifier in storage" do
       client = Supabase::Auth::Client.new(url: base_url, headers: default_headers, flow_type: :pkce)
 
-      result = client.exchange_code_for_session("auth-code-123")
-      expect(result[:error]).to be_a(Supabase::Auth::AuthPKCEGrantCodeExchangeError)
+      expect do
+        client.exchange_code_for_session("auth-code-123")
+      end.to raise_error(Supabase::Auth::AuthPKCEGrantCodeExchangeError)
     end
 
     it "emits password_recovery when verifier has PASSWORD_RECOVERY suffix" do

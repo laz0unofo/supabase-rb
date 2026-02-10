@@ -32,17 +32,15 @@ RSpec.describe "Auth Session Management" do
       token = build_jwt("sub" => "user-456")
       result = client.set_session(access_token: token, refresh_token: "rt-123")
 
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
-      expect(result[:data][:session].access_token).to eq(token)
-      expect(result[:data][:session].refresh_token).to eq("rt-123")
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session].access_token).to eq(token)
+      expect(result[:session].refresh_token).to eq("rt-123")
     end
 
-    it "SM-02: returns error for invalid token" do
-      result = client.set_session(access_token: "invalid-token", refresh_token: "rt-123")
-
-      expect(result[:error]).to be_a(Supabase::Auth::AuthInvalidTokenResponseError)
-      expect(result[:data][:session]).to be_nil
+    it "SM-02: raises error for invalid token" do
+      expect do
+        client.set_session(access_token: "invalid-token", refresh_token: "rt-123")
+      end.to raise_error(Supabase::Auth::AuthInvalidTokenResponseError)
     end
 
     it "SM-03: auto-refreshes expired token during set_session" do
@@ -55,8 +53,7 @@ RSpec.describe "Auth Session Management" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.set_session(access_token: expired_token, refresh_token: "rt-123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session].access_token).to eq(fresh_token)
+      expect(result[:session].access_token).to eq(fresh_token)
     end
   end
 
@@ -78,8 +75,7 @@ RSpec.describe "Auth Session Management" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.refresh_session
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session].access_token).to eq(fresh_token)
+      expect(result[:session].access_token).to eq(fresh_token)
     end
 
     it "SM-05: refreshes session with provided session" do
@@ -91,13 +87,13 @@ RSpec.describe "Auth Session Management" do
                    headers: { "Content-Type" => "application/json" })
 
       provided = Supabase::Auth::Session.new("refresh_token" => "custom-rt")
-      result = client.refresh_session(current_session: provided)
-      expect(result[:error]).to be_nil
+      client.refresh_session(current_session: provided)
     end
 
-    it "SM-06: returns error when no refresh token available" do
-      result = client.refresh_session
-      expect(result[:error]).to be_a(Supabase::Auth::AuthSessionMissingError)
+    it "SM-06: raises error when no refresh token available" do
+      expect do
+        client.refresh_session
+      end.to raise_error(Supabase::Auth::AuthSessionMissingError)
     end
   end
 
@@ -117,21 +113,19 @@ RSpec.describe "Auth Session Management" do
         .with(body: hash_including("scope" => "global"))
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_out
-      expect(result[:error]).to be_nil
+      client.sign_out
 
       # Session should be removed
       session_result = client.get_session
-      expect(session_result[:data][:session]).to be_nil
+      expect(session_result[:session]).to be_nil
     end
 
     it "SO-02: signs out with local scope (no server call)" do
-      result = client.sign_out(scope: :local)
-      expect(result[:error]).to be_nil
+      client.sign_out(scope: :local)
 
       # Session should be removed
       session_result = client.get_session
-      expect(session_result[:data][:session]).to be_nil
+      expect(session_result[:session]).to be_nil
     end
 
     it "SO-03: signs out with others scope" do
@@ -139,8 +133,7 @@ RSpec.describe "Auth Session Management" do
         .with(body: hash_including("scope" => "others"))
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_out(scope: :others)
-      expect(result[:error]).to be_nil
+      client.sign_out(scope: :others)
     end
   end
 
@@ -176,8 +169,8 @@ RSpec.describe "Auth Session Management" do
 
       client = Supabase::Auth::Client.new(url: base_url, headers: default_headers, storage: storage)
       result = client.get_session
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
-      expect(result[:data][:session].access_token).to eq(token)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session].access_token).to eq(token)
     end
 
     it "SM-09: does not persist session when persist_session is false" do
@@ -197,7 +190,7 @@ RSpec.describe "Auth Session Management" do
 
       # But should still be in memory
       result = client.get_session
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
   end
 
@@ -220,8 +213,7 @@ RSpec.describe "Auth Session Management" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.update_user(email: "new@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:user]["email"]).to eq("new@example.com")
+      expect(result[:user]["email"]).to eq("new@example.com")
     end
 
     it "UM-02: updates user password" do
@@ -231,8 +223,7 @@ RSpec.describe "Auth Session Management" do
                    body: '{"id":"user-123"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.update_user(password: "new-password")
-      expect(result[:error]).to be_nil
+      client.update_user(password: "new-password")
     end
 
     it "UM-03: updates user metadata" do
@@ -242,15 +233,15 @@ RSpec.describe "Auth Session Management" do
                    body: '{"id":"user-123"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.update_user(data: { "name" => "New Name" })
-      expect(result[:error]).to be_nil
+      client.update_user(data: { "name" => "New Name" })
     end
 
-    it "UM-04: returns error when no session exists" do
+    it "UM-04: raises error when no session exists" do
       client.sign_out(scope: :local)
 
-      result = client.update_user(email: "new@example.com")
-      expect(result[:error]).to be_a(Supabase::Auth::AuthSessionMissingError)
+      expect do
+        client.update_user(email: "new@example.com")
+      end.to raise_error(Supabase::Auth::AuthSessionMissingError)
     end
   end
 
@@ -263,8 +254,7 @@ RSpec.describe "Auth Session Management" do
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
       result = client.reset_password_for_email("test@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data]).to eq({})
+      expect(result).to eq({})
     end
 
     it "PR-02: includes redirect_to and captcha_token" do
@@ -276,10 +266,9 @@ RSpec.describe "Auth Session Management" do
         ))
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = client.reset_password_for_email(
+      client.reset_password_for_email(
         "test@example.com", redirect_to: "https://example.com/reset", captcha_token: "cap-123"
       )
-      expect(result[:error]).to be_nil
     end
   end
 
@@ -296,13 +285,13 @@ RSpec.describe "Auth Session Management" do
       stub_request(:get, "#{base_url}/reauthenticate")
         .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-      result = client.reauthenticate
-      expect(result[:error]).to be_nil
+      client.reauthenticate
     end
 
-    it "returns error when no session" do
-      result = client.reauthenticate
-      expect(result[:error]).to be_a(Supabase::Auth::AuthSessionMissingError)
+    it "raises error when no session" do
+      expect do
+        client.reauthenticate
+      end.to raise_error(Supabase::Auth::AuthSessionMissingError)
     end
   end
 
@@ -316,8 +305,7 @@ RSpec.describe "Auth Session Management" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.resend(type: "signup", email: "test@example.com")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:message_id]).to eq("msg-123")
+      expect(result[:message_id]).to eq("msg-123")
     end
 
     it "RS-02: resends phone OTP" do
@@ -326,8 +314,7 @@ RSpec.describe "Auth Session Management" do
         .to_return(status: 200, body: '{"message_id":"msg-456"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.resend(type: "sms", phone: "+1234567890")
-      expect(result[:error]).to be_nil
+      client.resend(type: "sms", phone: "+1234567890")
     end
 
     it "RS-03: includes PKCE params when flow_type is pkce" do
@@ -338,8 +325,7 @@ RSpec.describe "Auth Session Management" do
         .to_return(status: 200, body: '{"message_id":"msg-pkce"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = pkce_client.resend(type: "signup", email: "test@example.com")
-      expect(result[:error]).to be_nil
+      pkce_client.resend(type: "signup", email: "test@example.com")
     end
   end
 end

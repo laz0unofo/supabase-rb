@@ -1,0 +1,69 @@
+## Codebase Patterns
+- Each sub-gem is standalone (no dependency on core `supabase` gem). Use `unless defined?(Supabase::Error)` guards to define base error classes inline.
+- Use `unless ... end` block form (not postfix modifier) for multiline class definitions to satisfy rubocop `Style/MultilineIfModifier`.
+- Existing tests check `superclass` equality and `is_a?` relationships - preserve transitive inheritance chains when re-parenting error classes.
+- Sub-errors within each gem should inherit from their gem's base error (e.g., `StorageApiError < StorageError`) to preserve `is_a?` checks in existing tests. Deeper reorganization (e.g., `StorageApiError < Supabase::ApiError`) happens in gem-specific stories.
+- Commit format: `feat: [US-XXX] - Story Title`
+
+---
+
+## 2026-02-10 - US-001
+- Implemented unified `Supabase::Error`, `Supabase::ApiError`, and `Supabase::NetworkError` base classes in the core supabase gem
+- Added `SupabaseError = Error` alias for backward compatibility
+- All 5 sub-gem error files updated to inherit their base error from `Supabase::Error` (with `unless defined?` guards for standalone usage)
+- Preserved all existing sub-error inheritance chains within each gem
+- Updated 2 test files that checked `.superclass == StandardError` (PostgREST, Functions)
+- Added comprehensive errors_spec.rb in the core supabase gem covering all base classes, aliases, cross-gem hierarchy, and attribute preservation
+- Files changed:
+  - `gems/supabase/lib/supabase/errors.rb` (new: Error, ApiError, NetworkError, SupabaseError alias)
+  - `gems/supabase-auth/lib/supabase/auth/errors.rb` (AuthError < Supabase::Error)
+  - `gems/supabase-storage/lib/supabase/storage/errors.rb` (StorageError < Supabase::Error)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/errors.rb` (PostgrestError < Supabase::Error)
+  - `gems/supabase-functions/lib/supabase/functions/errors.rb` (FunctionsError < Supabase::Error)
+  - `gems/supabase-realtime/lib/supabase/realtime/errors.rb` (RealtimeError < Supabase::Error)
+  - `gems/supabase/spec/supabase/errors_spec.rb` (new test file)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/errors_spec.rb` (updated superclass check)
+  - `gems/supabase-functions/spec/supabase/functions/client_spec.rb` (updated superclass check)
+- **Learnings for future iterations:**
+  - The `unless defined?` guard pattern must use block form (`unless ... end`) not postfix modifier to satisfy rubocop
+  - Changing parent classes breaks `is_a?` checks and `superclass` equality tests - always grep for these before changing inheritance
+  - Sub-gems can be tested standalone or via root Gemfile; both paths must work
+  - The deeper hierarchy reorganization (e.g., `AuthApiError < Supabase::ApiError`) should be done in the gem-specific stories (US-002 through US-005) along with corresponding test updates
+---
+
+## 2026-02-10 - US-002
+- Converted all Auth client methods from `{ data:, error: }` hash returns to direct data returns with exception raising
+- Error hierarchy updated: `AuthApiError < Supabase::ApiError`, `AuthRetryableFetchError < Supabase::NetworkError`, `AuthUnknownError < Supabase::ApiError`
+- `AuthError` converted from class to module (mixin) so `is_a?(AuthError)` still works across all auth error classes regardless of parent
+- `AuthBaseError < Supabase::Error` added as concrete base class for non-HTTP/non-network auth errors
+- `HttpHandler#request` now raises classified errors instead of returning `{ data: nil, error: }` hashes
+- `HttpHandler#classify_and_return` returns parsed data directly, raises on error
+- Removed all `result[:error]` early-return propagation from: `sign_in_methods.rb`, `sign_up_methods.rb`, `session_methods.rb`, `user_methods.rb`, `verify_methods.rb`, `mfa_methods.rb`, `mfa_api.rb`, `admin_api.rb`, `client.rb`
+- `session_helpers.rb#refresh_access_token` returns Session object directly instead of `{ data: { session: }, error: nil }`
+- All 7 spec files updated: replaced `result[:data][:key]` with `result[:key]`, `result[:error]` checks with `raise_error` matchers
+- 157 specs pass, 0 rubocop offenses
+- Files changed (20 files, -123 lines net):
+  - `gems/supabase-auth/lib/supabase/auth/errors.rb` (AuthError -> module, AuthBaseError, re-parented ApiError/NetworkError subclasses)
+  - `gems/supabase-auth/lib/supabase/auth/http_handler.rb` (raise instead of return)
+  - `gems/supabase-auth/lib/supabase/auth/sign_in_methods.rb` (return data directly)
+  - `gems/supabase-auth/lib/supabase/auth/sign_up_methods.rb` (return data directly, raise on validation)
+  - `gems/supabase-auth/lib/supabase/auth/session_methods.rb` (raise on missing session/invalid token)
+  - `gems/supabase-auth/lib/supabase/auth/session_helpers.rb` (return Session directly)
+  - `gems/supabase-auth/lib/supabase/auth/verify_methods.rb` (return data directly)
+  - `gems/supabase-auth/lib/supabase/auth/user_methods.rb` (raise on missing session)
+  - `gems/supabase-auth/lib/supabase/auth/mfa_methods.rb` (raise on missing session)
+  - `gems/supabase-auth/lib/supabase/auth/mfa_api.rb` (return data directly, no error hash checks)
+  - `gems/supabase-auth/lib/supabase/auth/admin_api.rb` (return data directly)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (get_session/get_user return data directly)
+  - `gems/supabase-auth/spec/supabase/auth/sign_in_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/sign_up_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/session_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/mfa_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/admin_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/client_spec.rb`
+  - `gems/supabase-auth/spec/supabase/auth/utilities_spec.rb` (AuthError.new -> AuthBaseError.new)
+- **Learnings:**
+  - When re-parenting error classes across different base hierarchies, use a module mixin to preserve `is_a?` type checks
+  - `AuthError` as a module allows classes to inherit from `Supabase::ApiError`/`Supabase::NetworkError` while still being identifiable as auth errors
+  - The ErrorClassifier itself didn't need changes - it already returned error objects; the key was making HttpHandler raise them
+---

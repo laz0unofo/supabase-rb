@@ -15,10 +15,7 @@ module Supabase
       # Makes an authenticated MFA request.
       def mfa_request(method, path, body: nil)
         token = current_access_token
-        unless token
-          return { data: nil,
-                   error: AuthSessionMissingError.new("No session found") }
-        end
+        raise AuthSessionMissingError, "No session found" unless token
 
         request(method, path, body: body, jwt: token)
       end
@@ -28,7 +25,7 @@ module Supabase
         session = Session.new(data)
         save_session(session)
         emit_event(:mfa_challenge_verified, session)
-        { data: data, error: nil }
+        data
       end
     end
   end

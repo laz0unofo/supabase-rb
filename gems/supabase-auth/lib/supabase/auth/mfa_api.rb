@@ -32,10 +32,8 @@ module Supabase
       # Saves the aal2 session and emits MFA_CHALLENGE_VERIFIED.
       def verify(factor_id:, challenge_id:, code:)
         body = { challenge_id: challenge_id, code: code }
-        result = @client.send(:mfa_request, :post, "/factors/#{factor_id}/verify", body: body)
-        return result if result[:error]
-
-        @client.send(:handle_mfa_verify, result[:data])
+        data = @client.send(:mfa_request, :post, "/factors/#{factor_id}/verify", body: body)
+        @client.send(:handle_mfa_verify, data)
       end
 
       # Unenrolls (removes) a factor.
@@ -45,28 +43,22 @@ module Supabase
 
       # Convenience method that combines challenge + verify in one call.
       def challenge_and_verify(factor_id:, code:)
-        challenge_result = challenge(factor_id: factor_id)
-        return challenge_result if challenge_result[:error]
-
-        challenge_id = challenge_result[:data]["id"]
+        challenge_data = challenge(factor_id: factor_id)
+        challenge_id = challenge_data["id"]
         verify(factor_id: factor_id, challenge_id: challenge_id, code: code)
       end
 
       # Lists the user's MFA factors, categorized by type.
       def list_factors
-        result = @client.get_user
-        return result if result[:error]
-
-        factors = extract_factors(result[:data][:user])
+        user_data = @client.get_user
+        factors = extract_factors(user_data[:user])
         categorize_factors(factors)
       end
 
       # Returns the current authenticator assurance level from the JWT.
       def get_authenticator_assurance_level # rubocop:disable Naming/AccessorMethodName
-        result = @client.get_session
-        return { data: nil, error: result[:error] } if result[:error]
-
-        session = result[:data][:session]
+        session_data = @client.get_session
+        session = session_data[:session]
         return build_aal_result(nil, nil, []) unless session
 
         payload = JWT.decode(session.access_token)
@@ -88,7 +80,7 @@ module Supabase
       def categorize_factors(factors)
         totp = verified_factors_by_type(factors, "totp")
         phone = verified_factors_by_type(factors, "phone")
-        { data: { all: factors, totp: totp, phone: phone }, error: nil }
+        { all: factors, totp: totp, phone: phone }
       end
 
       def verified_factors_by_type(factors, type)
@@ -110,12 +102,9 @@ module Supabase
 
       def build_aal_result(current_level, next_level, amr)
         {
-          data: {
-            current_level: current_level,
-            next_level: next_level,
-            current_authentication_methods: amr
-          },
-          error: nil
+          current_level: current_level,
+          next_level: next_level,
+          current_authentication_methods: amr
         }
       end
     end

@@ -14,36 +14,32 @@ module Supabase
       # @option options [Hash] :data additional user metadata
       # @option options [String] :channel the messaging channel for phone sign-up (default: "sms")
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthInvalidCredentialsError] when neither email nor phone provided
+      # @raise [AuthApiError] on API errors
       def sign_up(password:, **options)
-        unless options[:email] || options[:phone]
-          return { data: { user: nil, session: nil },
-                   error: AuthInvalidCredentialsError.new("Email or phone is required") }
-        end
+        raise AuthInvalidCredentialsError, "Email or phone is required" unless options[:email] || options[:phone]
 
         body = build_sign_up_body(password, options)
         append_pkce_params(body) if @flow_type == :pkce
 
-        result = request(:post, "/signup", body: body)
-        return result if result[:error]
-
-        handle_sign_up_response(result[:data])
+        data = request(:post, "/signup", body: body)
+        handle_sign_up_response(data)
       end
 
       # Signs in anonymously (creates a new anonymous user).
       #
       # @option options [Hash] :data additional user metadata
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] with :user and :session keys
+      # @raise [AuthApiError] on API errors
       def sign_in_anonymously(**options)
         body = {}
         body[:data] = options[:data] if options[:data]
         body[:gotrue_meta_security] = { captcha_token: options[:captcha_token] } if options[:captcha_token]
 
-        result = request(:post, "/signup", body: body)
-        return result if result[:error]
-
-        handle_session_response(result[:data])
+        data = request(:post, "/signup", body: body)
+        handle_session_response(data)
       end
 
       private
@@ -70,19 +66,19 @@ module Supabase
           session = Session.new(data)
           save_session(session)
           emit_event(:signed_in, session)
-          { data: { user: session.user, session: session }, error: nil }
+          { user: session.user, session: session }
         else
-          { data: { user: data["user"] || data, session: nil }, error: nil }
+          { user: data["user"] || data, session: nil }
         end
       end
 
       def handle_session_response(data)
-        return { data: { user: nil, session: nil }, error: nil } unless data["access_token"]
+        return { user: nil, session: nil } unless data["access_token"]
 
         session = Session.new(data)
         save_session(session)
         emit_event(:signed_in, session)
-        { data: { user: session.user, session: session }, error: nil }
+        { user: session.user, session: session }
       end
 
       def append_captcha(body, captcha_token)

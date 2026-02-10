@@ -43,12 +43,10 @@ module Supabase
       end
 
       def refresh_access_token(refresh_token)
-        result = request(:post, "/token?grant_type=refresh_token", body: { refresh_token: refresh_token })
-        return result if result[:error]
-
-        session = Session.new(result[:data])
+        data = request(:post, "/token?grant_type=refresh_token", body: { refresh_token: refresh_token })
+        session = Session.new(data)
         save_session(session)
-        { data: { session: session }, error: nil }
+        session
       end
 
       def emit_event(event, session)

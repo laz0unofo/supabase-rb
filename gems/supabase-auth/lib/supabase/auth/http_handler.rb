@@ -6,7 +6,7 @@ require "json"
 module Supabase
   module Auth
     # HTTP request handling for the Auth client.
-    # Manages Faraday connections, sends standard headers, and classifies errors.
+    # Manages Faraday connections, sends standard headers, and raises on errors.
     module HttpHandler
       API_VERSION = "2024-01-01"
       CLIENT_INFO = "supabase-rb/#{VERSION}".freeze
@@ -19,7 +19,7 @@ module Supabase
         response = perform_http(method, url, body, merged_headers)
         classify_and_return(response)
       rescue Faraday::Error => e
-        { data: nil, error: ErrorClassifier.classify_exception(e) }
+        raise ErrorClassifier.classify_exception(e)
       end
 
       def perform_http(method, url, body, headers)
@@ -45,10 +45,9 @@ module Supabase
 
       def classify_and_return(response)
         error = ErrorClassifier.classify_response(response)
-        return { data: nil, error: error } if error
+        raise error if error
 
-        data = parse_response_data(response)
-        { data: data, error: nil }
+        parse_response_data(response)
       end
 
       def parse_response_data(response)

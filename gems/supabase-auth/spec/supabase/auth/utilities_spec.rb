@@ -291,11 +291,11 @@ RSpec.describe "Auth Utilities" do
     end
 
     it "all auth errors inherit from StandardError" do
-      expect(Supabase::Auth::AuthError.ancestors).to include(StandardError)
+      expect(Supabase::Auth::AuthBaseError.ancestors).to include(StandardError)
     end
 
-    it "AuthError has context attribute" do
-      error = Supabase::Auth::AuthError.new("msg", context: { key: "val" })
+    it "AuthBaseError has context attribute" do
+      error = Supabase::Auth::AuthBaseError.new("msg", context: { key: "val" })
       expect(error.context).to eq({ key: "val" })
       expect(error.message).to eq("msg")
     end
@@ -313,7 +313,7 @@ RSpec.describe "Auth Utilities" do
     end
 
     it "auth_error? returns true for AuthError instances" do
-      expect(client.auth_error?(Supabase::Auth::AuthError.new)).to be true
+      expect(client.auth_error?(Supabase::Auth::AuthBaseError.new)).to be true
       expect(client.auth_error?(Supabase::Auth::AuthApiError.new)).to be true
       expect(client.auth_error?(StandardError.new)).to be false
     end
@@ -321,17 +321,17 @@ RSpec.describe "Auth Utilities" do
     it "auth_api_error? returns true for AuthApiError instances" do
       expect(client.auth_api_error?(Supabase::Auth::AuthApiError.new)).to be true
       expect(client.auth_api_error?(Supabase::Auth::AuthWeakPasswordError.new)).to be true
-      expect(client.auth_api_error?(Supabase::Auth::AuthError.new)).to be false
+      expect(client.auth_api_error?(Supabase::Auth::AuthBaseError.new)).to be false
     end
 
     it "auth_session_missing_error? returns true for AuthSessionMissingError instances" do
       expect(client.auth_session_missing_error?(Supabase::Auth::AuthSessionMissingError.new)).to be true
-      expect(client.auth_session_missing_error?(Supabase::Auth::AuthError.new)).to be false
+      expect(client.auth_session_missing_error?(Supabase::Auth::AuthBaseError.new)).to be false
     end
 
     it "auth_retryable_fetch_error? returns true for AuthRetryableFetchError instances" do
       expect(client.auth_retryable_fetch_error?(Supabase::Auth::AuthRetryableFetchError.new)).to be true
-      expect(client.auth_retryable_fetch_error?(Supabase::Auth::AuthError.new)).to be false
+      expect(client.auth_retryable_fetch_error?(Supabase::Auth::AuthBaseError.new)).to be false
     end
   end
 

@@ -35,9 +35,8 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_up(email: "test@example.com", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
-      expect(result[:data][:user]).to be_a(Hash)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:user]).to be_a(Hash)
     end
 
     it "SU-02: signs up with phone and password" do
@@ -47,15 +46,13 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_up(phone: "+1234567890", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
-    it "SU-03: returns error when neither email nor phone is provided" do
-      result = client.sign_up(password: "password123")
-      expect(result[:error]).to be_a(Supabase::Auth::AuthInvalidCredentialsError)
-      expect(result[:data][:user]).to be_nil
-      expect(result[:data][:session]).to be_nil
+    it "SU-03: raises error when neither email nor phone is provided" do
+      expect do
+        client.sign_up(password: "password123")
+      end.to raise_error(Supabase::Auth::AuthInvalidCredentialsError, "Email or phone is required")
     end
 
     it "SU-04: includes custom user data" do
@@ -64,8 +61,7 @@ RSpec.describe "Auth Sign Up" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_up(email: "test@example.com", password: "password123", data: { "name" => "Test User" })
-      expect(result[:error]).to be_nil
+      client.sign_up(email: "test@example.com", password: "password123", data: { "name" => "Test User" })
     end
 
     it "SU-05: includes captcha token" do
@@ -74,8 +70,7 @@ RSpec.describe "Auth Sign Up" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_up(email: "test@example.com", password: "password123", captcha_token: "captcha-123")
-      expect(result[:error]).to be_nil
+      client.sign_up(email: "test@example.com", password: "password123", captcha_token: "captcha-123")
     end
 
     it "SU-06: returns user without session when email confirmation required" do
@@ -85,19 +80,18 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_up(email: "test@example.com", password: "password123")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:user]).to be_a(Hash)
-      expect(result[:data][:session]).to be_nil
+      expect(result[:user]).to be_a(Hash)
+      expect(result[:session]).to be_nil
     end
 
-    it "SU-07: returns error on API failure" do
+    it "SU-07: raises error on API failure" do
       stub_request(:post, "#{base_url}/signup")
         .to_return(status: 422, body: '{"message":"User already registered","error_code":"user_exists"}',
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_up(email: "test@example.com", password: "password123")
-      expect(result[:error]).to be_a(Supabase::Auth::AuthApiError)
-      expect(result[:error].message).to eq("User already registered")
+      expect do
+        client.sign_up(email: "test@example.com", password: "password123")
+      end.to raise_error(Supabase::Auth::AuthApiError, "User already registered")
     end
   end
 
@@ -111,8 +105,7 @@ RSpec.describe "Auth Sign Up" do
                    body: JSON.generate("user" => { "id" => "user-123" }),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_up(email: "test@example.com", password: "password123")
-      expect(result[:error]).to be_nil
+      client.sign_up(email: "test@example.com", password: "password123")
 
       # Verify code verifier was stored
       verifier = client.storage.get_item("supabase.auth.token-code-verifier")
@@ -140,8 +133,7 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_with_otp(phone: "+1234567890")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:message_id]).to eq("msg-123")
+      expect(result[:message_id]).to eq("msg-123")
     end
 
     it "PH-03: verifies phone OTP" do
@@ -151,8 +143,7 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.verify_otp(phone: "+1234567890", token: "123456", type: "sms")
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
   end
 
@@ -165,8 +156,7 @@ RSpec.describe "Auth Sign Up" do
                    headers: { "Content-Type" => "application/json" })
 
       result = client.sign_in_anonymously
-      expect(result[:error]).to be_nil
-      expect(result[:data][:session]).to be_a(Supabase::Auth::Session)
+      expect(result[:session]).to be_a(Supabase::Auth::Session)
     end
 
     it "AN-02: includes custom data for anonymous sign-in" do
@@ -175,8 +165,7 @@ RSpec.describe "Auth Sign Up" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_in_anonymously(data: { "role" => "guest" })
-      expect(result[:error]).to be_nil
+      client.sign_in_anonymously(data: { "role" => "guest" })
     end
 
     it "AN-03: includes captcha token for anonymous sign-in" do
@@ -185,8 +174,7 @@ RSpec.describe "Auth Sign Up" do
         .to_return(status: 200, body: JSON.generate(session_response),
                    headers: { "Content-Type" => "application/json" })
 
-      result = client.sign_in_anonymously(captcha_token: "cap-123")
-      expect(result[:error]).to be_nil
+      client.sign_in_anonymously(captcha_token: "cap-123")
     end
   end
 end

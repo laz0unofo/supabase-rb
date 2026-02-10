@@ -13,14 +13,13 @@ module Supabase
       # @option options [String] :email the user's email address
       # @option options [String] :phone the user's phone number
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] session data with :user and :session keys
+      # @raise [AuthApiError] on API errors
+      # @raise [AuthRetryableFetchError] on network failures
       def sign_in_with_password(password:, **options)
         body = build_password_body(password, options)
-
-        result = request(:post, "/token?grant_type=password", body: body)
-        return result if result[:error]
-
-        handle_session_response(result[:data])
+        data = request(:post, "/token?grant_type=password", body: body)
+        handle_session_response(data)
       end
 
       # Builds an OAuth authorize URL (no HTTP call).
@@ -30,12 +29,12 @@ module Supabase
       # @option options [String] :scopes OAuth scopes to request
       # @option options [Boolean] :skip_browser_redirect whether to skip automatic browser redirect
       # @option options [Hash] :query_params additional query parameters to include in the URL
-      # @return [Hash{Symbol => Hash, nil}] { data: { provider: String, url: String }, error: nil }
+      # @return [Hash] with :provider and :url keys
       def sign_in_with_oauth(**options)
         params = build_oauth_base_params(options)
         append_oauth_pkce(params)
         url = "#{@url}/authorize?#{URI.encode_www_form(params)}"
-        { data: { provider: options[:provider], url: url }, error: nil }
+        { provider: options[:provider], url: url }
       end
 
       # Signs in with OTP (one-time password) via email or phone.
@@ -46,15 +45,14 @@ module Supabase
       # @option options [Hash] :data additional user metadata
       # @option options [String] :channel the messaging channel for phone OTP (default: "sms")
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] { data: { message_id: String | nil }, error: nil | AuthError }
+      # @return [Hash] with :message_id key
+      # @raise [AuthApiError] on API errors
       def sign_in_with_otp(**options)
         body = build_otp_body(options)
         append_pkce_params(body) if @flow_type == :pkce
 
-        result = request(:post, "/otp", body: body)
-        return result if result[:error]
-
-        { data: { message_id: result[:data]["message_id"] }, error: nil }
+        data = request(:post, "/otp", body: body)
+        { message_id: data["message_id"] }
       end
 
       # Signs in with an ID token from an external provider.
@@ -64,14 +62,12 @@ module Supabase
       # @option options [String] :access_token an optional provider access token
       # @option options [String] :nonce an optional nonce for token verification
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] result with data and error keys
+      # @return [Hash] session data with :user and :session keys
+      # @raise [AuthApiError] on API errors
       def sign_in_with_id_token(**options)
         body = build_id_token_body(options)
-
-        result = request(:post, "/token?grant_type=id_token", body: body)
-        return result if result[:error]
-
-        handle_session_response(result[:data])
+        data = request(:post, "/token?grant_type=id_token", body: body)
+        handle_session_response(data)
       end
 
       # Signs in with SSO (Single Sign-On) via provider_id or domain.
@@ -80,15 +76,14 @@ module Supabase
       # @option options [String] :domain the SSO domain to authenticate with
       # @option options [String] :redirect_to the URL to redirect to after authentication
       # @option options [String] :captcha_token a captcha verification token
-      # @return [Hash{Symbol => Hash, nil}] { data: { url: String | nil }, error: nil | AuthError }
+      # @return [Hash] with :url key
+      # @raise [AuthApiError] on API errors
       def sign_in_with_sso(**options)
         body = build_sso_body(options)
         append_pkce_params(body) if @flow_type == :pkce
 
-        result = request(:post, "/sso", body: body)
-        return result if result[:error]
-
-        { data: { url: result[:data]["url"] }, error: nil }
+        data = request(:post, "/sso", body: body)
+        { url: data["url"] }
       end
 
       private
