@@ -133,7 +133,8 @@
         ".max_affected(value) - appends Prefer: handling=strict,max-affected={value}"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-008",

@@ -28,6 +28,9 @@
 - Bulk insert: `columns` param set from union of all Hash keys in array
 - Filter methods mutate `@url` in-place and return `self` for chaining; use modules (Filters, RangeFilters) to split methods
 - `Naming/PredicatePrefix` cop: use `rubocop:disable` inline for API-convention `is_*` methods that aren't predicates
+- Transform methods (order, limit, range, single, csv, etc.) live in Transforms module included by FilterBuilder
+- `Metrics/AbcSize`/`CyclomaticComplexity`: split methods with many boolean flags into helper + collector pattern
+- `maybe_single` requires FilterBuilder#execute override for post-processing (unwrap array, synthesize PGRST116 error)
 
 ---
 
@@ -143,4 +146,27 @@
   - `or` filter uses `key=(filters)` format; with `referenced_table`, key becomes `table.or`
   - `match_filter` applies multiple `eq` filters from a Hash
   - `text_search` operator mapping: nil->fts, :plain->plfts, :phrase->phfts, :websearch->wfts; config appended as `op(config)`
+---
+
+## 2026-02-10 - US-007
+- What was implemented: PostgREST Transform Builder with order, limit, range, single, maybe_single, csv, geojson, explain, rollback, and max_affected methods
+- Files changed:
+  - `gems/supabase-postgrest/lib/supabase/postgrest/transforms.rb` (new: Transforms module with all transform methods)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/filter_builder.rb` (updated: includes Transforms module, added execute override for maybe_single, added handle_maybe_single)
+  - `gems/supabase-postgrest/lib/supabase/postgrest.rb` (updated: added require for transforms)
+  - `.chief/prds/main/prd.json` (marked US-007 as passes: true)
+- **Implementation details:**
+  - Transforms module extracted to keep FilterBuilder under 100 lines (same pattern as Filters/RangeFilters)
+  - `order` supports multiple calls by appending to existing order param (comma-separated)
+  - `range(from, to)` converts to offset + limit params (0-based inclusive: limit = to - from + 1)
+  - `single` sets Accept: application/vnd.pgrst.object+json; PostgREST errors on != 1 row
+  - `maybe_single` sets same Accept header + @maybe_single flag; execute override unwraps arrays and synthesizes PGRST116 error on >1 row
+  - `explain` builds Accept header with `for="explain"` prefix and pipe-separated options
+  - `rollback` and `max_affected` append to Prefer header
+  - Transform methods mutate `@headers`/`@url` in-place and return `self` for chaining (same as filter methods)
+- **Learnings for future iterations:**
+  - `Metrics/AbcSize` and `CyclomaticComplexity`: split methods with many boolean flags into helper + collector (e.g., `build_explain_header` + `collect_explain_parts`)
+  - `Lint/DuplicateBranch`: remove redundant if/else with same body (e.g., maybe_single had identical branches for GET vs non-GET)
+  - `order` appending: use regex gsub on existing query string to append comma-separated values to existing `order=` param
+  - `maybe_single` needs FilterBuilder#execute override (not Builder) since it's post-processing logic specific to the result
 ---
