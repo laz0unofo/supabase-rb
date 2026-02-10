@@ -74,7 +74,8 @@
         "All existing postgrest specs updated and passing"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-005",
@@ -92,7 +93,8 @@
         "All existing functions specs updated and passing"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-006",
@@ -105,7 +107,8 @@
         "bundle exec rake spec passes across all gems from the root"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-007",
@@ -120,7 +123,8 @@
         "bundle exec rubocop passes with zero offenses"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     }
   ]
 }

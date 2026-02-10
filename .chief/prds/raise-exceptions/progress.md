@@ -97,3 +97,90 @@
   - Use `raise_error(Class, message) { |e| expect(e.attr)... }` to check error + attributes without multiline block chain
   - The module mixin pattern from US-002 applied cleanly to the storage gem
 ---
+
+## 2026-02-10 - US-004
+- Converted PostgREST client from `{ data:, error: }` hash returns to Response value objects and exception raising
+- Error hierarchy updated: `PostgrestError < Supabase::ApiError` (keeps details, hint, code attributes)
+- Created `Supabase::PostgREST::Response` value object with `data`, `count`, `status`, `status_text` accessors
+- `execute` returns `Response` on success, raises `PostgrestError` on HTTP errors
+- `handle_fetch_error` always raises `PostgrestError` with code `FETCH_ERROR` (removed conditional logic)
+- Removed `throw_on_error` method and `@throw_on_error` flag entirely (raising is now the only behavior)
+- `handle_maybe_single` updated to work with Response objects (`.data` instead of `[:data]`), returns new Response
+- `PostgrestError#initialize` uses `**options` keyword splat to satisfy rubocop `Metrics/ParameterLists` (6 params > 5 limit)
+- `raise_on_error` uses modifier `unless` and multi-line hash alignment to satisfy rubocop
+- All 4 spec files updated: `result[:data]` -> `result.data`, `result[:status]` -> `result.status`, error checks -> `raise_error` matchers
+- Removed throw_on_error tests (EH-06, EH-07, EH-08) and BI-02 (throw_on_error returns new builder)
+- 124 specs pass, 0 rubocop offenses
+- Files changed (11 files):
+  - `gems/supabase-postgrest/lib/supabase/postgrest.rb` (added response require)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/response.rb` (new: Response value object)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/errors.rb` (PostgrestError < Supabase::ApiError, **options)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/builder.rb` (removed throw_on_error)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/response_handler.rb` (raise_on_error, returns Response)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/filter_builder.rb` (handle_maybe_single with Response)
+  - `gems/supabase-postgrest/lib/supabase/postgrest/client.rb` (updated docs)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/errors_spec.rb`
+  - `gems/supabase-postgrest/spec/supabase/postgrest/crud_spec.rb`
+  - `gems/supabase-postgrest/spec/supabase/postgrest/transforms_spec.rb`
+  - `gems/supabase-postgrest/spec/supabase/postgrest/client_spec.rb`
+- **Learnings:**
+  - Use `**options` keyword splat when a constructor needs > 5 params (rubocop Metrics/ParameterLists)
+  - PostgREST Response as a simple value object (attr_reader only) is cleaner than hash returns
+  - Removing throw_on_error simplifies both source and tests significantly
+---
+
+## 2026-02-10 - US-005
+- Converted Functions client from `{ data:, error: }` hash returns to direct data returns with exception raising
+- Error hierarchy updated: `FunctionsHttpError < Supabase::ApiError`, `FunctionsRelayError < Supabase::ApiError`, `FunctionsFetchError < Supabase::NetworkError`
+- `FunctionsError` converted from class to module (mixin) so `is_a?(FunctionsError)` still works
+- `FunctionsBaseError < Supabase::Error` added as concrete base class
+- `invoke` returns parsed response data directly on success
+- `process_response` raises `FunctionsRelayError`/`FunctionsHttpError` instead of returning error hashes
+- `rescue Faraday::Error, IOError` raises `FunctionsFetchError` instead of returning hash
+- Invalid HTTP method raises `FunctionsFetchError` (extracted to `validate_method` to satisfy ABC size limit)
+- Used `raise Class, message` style (not `raise Class.new(message)`) for rubocop `Style/RaiseArgs`
+- All spec `result[:data]` -> `result`, `result[:error]` -> `raise_error` matchers
+- 65 specs pass, 0 rubocop offenses
+- Files changed (4 files):
+  - `gems/supabase-functions/lib/supabase/functions/errors.rb` (FunctionsError -> module, re-parented classes)
+  - `gems/supabase-functions/lib/supabase/functions/client.rb` (raise instead of return hash)
+  - `gems/supabase-functions/lib/supabase/functions/response_handler.rb` (raise instead of return hash)
+  - `gems/supabase-functions/spec/supabase/functions/client_spec.rb`
+- **Learnings:**
+  - `raise Class, "msg"` preferred over `raise Class.new("msg")` by rubocop Style/RaiseArgs (when no extra kwargs needed)
+  - Extract validation to helper method when ABC size is borderline (17.23 > 17 limit)
+---
+
+## 2026-02-10 - US-006
+- Updated main Supabase::Client integration to work with new exception-based sub-clients
+- `auth_token_manager.rb`: Fixed `resolve_current_token` to use `[:session]` instead of `.dig(:data, :session)` (get_session no longer returns `{ data: { session: } }` wrapper)
+- `delegation.rb`: Updated rpc yard doc to reference `Response` return type and `PostgrestError` raise
+- `client_spec.rb`: Updated get_session stubs from `{ data: { session: nil }, error: nil }` to `{ session: nil }`, rpc delegation test uses Response-like double
+- `errors_spec.rb`: Updated cross-gem hierarchy tests for AuthError/StorageError/FunctionsError being modules (use `.to be_a(Module)` and `BaseError.new` instead of `.new`)
+- 702 total specs pass (all 6 gems), 0 rubocop offenses (119 files)
+- Files changed (4 files):
+  - `gems/supabase/lib/supabase/auth_token_manager.rb`
+  - `gems/supabase/lib/supabase/delegation.rb`
+  - `gems/supabase/spec/supabase/client_spec.rb`
+  - `gems/supabase/spec/supabase/errors_spec.rb`
+---
+
+## 2026-02-10 - US-007
+- Final cross-gem validation confirms all acceptance criteria are met
+- Zero `result[:error]` patterns remain in any spec files
+- Zero `result[:data]` patterns remain in any spec files
+- Zero `{ data: nil, error: }` patterns remain in any source files
+- PostgREST specs assert on Response object attributes (`.data`, `.count`, `.status`, `.status_text`)
+- Error attribute assertions preserved in `raise_error { |e| }` blocks throughout
+- **702 total specs pass across all 6 gems, 0 failures**
+- **119 files inspected by rubocop, 0 offenses**
+- No new code changes needed - US-001 through US-006 covered all tests
+---
+
+## PRD COMPLETE
+All 7 user stories pass. The SDK now uses idiomatic Ruby exception raising across all gems:
+- Auth: `AuthApiError`, `AuthRetryableFetchError`, `AuthUnknownError` (raise)
+- Storage: `StorageApiError`, `StorageUnknownError` (raise)
+- PostgREST: `PostgrestError` (raise), returns `Response` value object
+- Functions: `FunctionsHttpError`, `FunctionsRelayError`, `FunctionsFetchError` (raise)
+- Main client: Integration updated for new patterns
