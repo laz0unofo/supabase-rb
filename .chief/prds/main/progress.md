@@ -31,6 +31,10 @@
 - Transform methods (order, limit, range, single, csv, etc.) live in Transforms module included by FilterBuilder
 - `Metrics/AbcSize`/`CyclomaticComplexity`: split methods with many boolean flags into helper + collector pattern
 - `maybe_single` requires FilterBuilder#execute override for post-processing (unwrap array, synthesize PGRST116 error)
+- Filter patterns with `%` (like/ilike) cause URI::InvalidURIError; test via `builder.url.query` instead of `stub_request` for those
+- Text search queries with spaces get URL-encoded to `%20` by URI.parse; account for encoding in assertions
+- Use `%r{}` instead of `//` for regexes containing slashes (Style/RegexpLiteral cop)
+- Split large test suites into multiple files by concern (client, crud, filters, transforms, errors) for manageability
 
 ---
 
@@ -169,4 +173,39 @@
   - `Lint/DuplicateBranch`: remove redundant if/else with same body (e.g., maybe_single had identical branches for GET vs non-GET)
   - `order` appending: use regex gsub on existing query string to append comma-separated values to existing `order=` param
   - `maybe_single` needs FilterBuilder#execute override (not Builder) since it's post-processing logic specific to the result
+---
+
+## 2026-02-10 - US-008
+- What was implemented: Comprehensive test suite for the PostgREST client (127 tests total across 4 test files)
+- Files changed:
+  - `gems/supabase-postgrest/spec/supabase/postgrest/client_spec.rb` (new: CI-01 through CI-06, from/schema/RPC tests, SC-01 through SC-04, RP-01 through RP-07)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/crud_spec.rb` (new: SE-01 through SE-07, IN-01 through IN-05, UP-01 through UP-02, US-01 through US-03, DE-01 through DE-03)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/filters_spec.rb` (new: FI-01 through FI-25, range filters, text search, compound filters)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/transforms_spec.rb` (new: TR-01 through TR-17, explain, rollback, max_affected)
+  - `gems/supabase-postgrest/spec/supabase/postgrest/errors_spec.rb` (new: EH-01 through EH-08, BI-01 through BI-03, response parsing, custom fetch, error hierarchy)
+  - `.chief/prds/main/prd.json` (marked US-008 as passes: true)
+- **Test coverage areas:**
+  - Client initialization (CI-01 through CI-06)
+  - SELECT operations (SE-01 through SE-07)
+  - INSERT operations (IN-01 through IN-05)
+  - UPDATE operations (UP-01 through UP-02)
+  - UPSERT operations (US-01 through US-03)
+  - DELETE operations (DE-01 through DE-03)
+  - All filters (FI-01 through FI-25): eq, neq, gt, gte, lt, lte, is, is_distinct, like, ilike, like_all_of, like_any_of, ilike_all_of, ilike_any_of, match, imatch, in, contains, contained_by, overlaps, chaining
+  - Range filters: range_gt, range_gte, range_lt, range_lte, range_adjacent
+  - Text search: fts, plfts, phfts, wfts with config
+  - Compound filters: match_filter, not, or, filter
+  - All transforms (TR-01 through TR-17): order, limit, range, single, maybe_single, csv, geojson, explain, rollback, max_affected
+  - RPC (RP-01 through RP-07): POST/GET/HEAD, count, schema
+  - Error handling (EH-01 through EH-08): JSON errors, non-JSON errors, network errors, timeout, throw_on_error
+  - Schema switching (SC-01 through SC-04): Accept-Profile, Content-Profile
+  - Builder immutability (BI-01 through BI-03): from() independence, throw_on_error copies, select copies
+  - Response parsing: JSON, vnd.pgrst, CSV, Content-Range count
+  - URL construction validation across all test categories
+- **Learnings for future iterations:**
+  - Split tests into multiple files (client, crud, filters, transforms, errors) to keep files manageable
+  - Patterns with `%` chars in like/ilike filter tests cause URI::InvalidURIError when used via `append_query_param` with URI.parse; test query string assertions instead of HTTP stubs for those patterns
+  - Text search queries with spaces get URL-encoded by URI.parse; match against `%20` in query string assertions
+  - Use `%r{}` instead of `//` for regexes with slashes (Style/RegexpLiteral cop)
+  - Unused variable assignments in tests trigger `Lint/UselessAssignment`; omit the assignment if the return value isn't checked
 ---
