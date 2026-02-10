@@ -233,7 +233,8 @@
         "Image transform query string generation tests"
       ],
       "priority": 12,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-013",

@@ -300,3 +300,31 @@
   - `get_public_url` never makes HTTP calls - it's pure URL construction
   - `list` uses `sortBy` (camelCase) in request body to match Supabase API convention
 ---
+
+## 2026-02-10 - US-012
+- What was implemented: Comprehensive test suite for the Storage client (91 tests across 5 test files)
+- Files changed:
+  - `gems/supabase-storage/spec/supabase/storage/client_spec.rb` (new: client initialization and from() tests)
+  - `gems/supabase-storage/spec/supabase/storage/bucket_api_spec.rb` (new: BM-01 through BM-09 bucket management tests)
+  - `gems/supabase-storage/spec/supabase/storage/file_operations_spec.rb` (new: UL-01 through UL-12, DL-01 through DL-06, FO-01 through FO-07)
+  - `gems/supabase-storage/spec/supabase/storage/url_operations_spec.rb` (new: SU-01 through SU-07, PU-01 through PU-04, FL-01 through FL-06, signed upload URLs)
+  - `gems/supabase-storage/spec/supabase/storage/errors_spec.rb` (new: EH-01 through EH-04, path normalization, image transform params)
+  - `.chief/prds/main/prd.json` (marked US-012 as passes: true)
+- **Test coverage areas:**
+  - Bucket management (BM-01 through BM-09): list, get, create, update, empty, delete with success/error/network failure
+  - Upload tests (UL-01 through UL-12): string/IO body, cache control, content type, upsert, metadata, path normalization, errors, update via PUT
+  - Download tests (DL-01 through DL-06): basic download, binary body, transforms with render/image/authenticated path, errors, path normalization
+  - Signed URL tests (SU-01 through SU-07): single/batch signed URLs, download param (boolean/filename), transforms, errors
+  - Public URL tests (PU-01 through PU-04): basic URL, download param, image transforms using render/image/public path
+  - File operations (FO-01 through FO-07): move (same/different bucket), copy (same/different bucket), remove, info, exists?
+  - File listing tests (FL-01 through FL-06): defaults, path prefix, limit/offset, sort, search, errors
+  - Error handling (EH-01 through EH-04): error hierarchy, JSON/non-JSON error extraction, network failures, timeouts
+  - Path normalization: leading/trailing slashes, consecutive slashes, empty path
+  - Image transform params: width, height, resize, quality, format, render/image/public and render/image/authenticated paths
+- **Learnings for future iterations:**
+  - `empty_bucket` sends `JSON.generate({})` which is `"{}"` (string); stub with `body: "{}"` not `body: "{}".to_json` (which double-encodes)
+  - WebMock body matching: when implementation uses `JSON.generate(body)`, stub with the exact JSON string, not `.to_json` on the expected hash (which may produce different key ordering or encoding)
+  - Split storage tests across 5 files by concern: client, bucket_api, file_operations, url_operations, errors
+  - `hash_including` matcher in WebMock works well for asserting partial body matches (e.g., FL-02 through FL-05)
+  - Rubocop `Style/StringLiterals`: prefer double-quoted strings even for `'{}'` literal
+---
