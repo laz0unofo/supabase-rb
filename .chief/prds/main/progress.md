@@ -13,6 +13,9 @@
 - All client methods return `{ data:, error: }` result hashes (never raise by default)
 - Error hierarchy pattern: BaseError < StandardError, then specific subclasses with `status:` and `context:` attrs
 - Test files go in `gems/{name}/spec/supabase/{module}/` subdirectories (e.g., `client_spec.rb`)
+- Constants defined in modules must be scoped to the module where they're used, not the including class (Ruby constant lookup goes to enclosing module first)
+- Auth test pattern: helper `build_jwt(payload)` to create valid JWT tokens for testing; `session_response(overrides)` for mock API responses
+- Split auth tests into 8 files by concern: client, sign_up, sign_in, session, events, admin, mfa, utilities
 - WebMock: do NOT chain multiple `.to_return` on same stub (they cycle sequentially); use one `stub_request(...).to_return(...)` per test
 - Rubocop `Naming/VariableNumber`: use normalcase for symbol numbers (`:ap_southeast1` not `:ap_southeast_1`)
 - Faraday test adapter blocks must be multiline `do...end`, not single-line, to satisfy `Style/BlockDelimiters`
@@ -71,6 +74,10 @@
 - Admin API uses separate class (AdminApi) accessed via `client.admin`; follows same pattern as MfaApi with AdminMethods module
 - Admin endpoints: `/admin/users` (CRUD), `/invite` (email invite), `/admin/generate_link` (link generation), `/logout` (admin sign out with JWT param)
 - `generate_link` extracts link properties (action_link, email_otp, hashed_token, redirect_to, verification_type) from response data
+- Realtime Client uses `websocket-client-simple` gem; `WebSocket::Client::Simple.connect(url) { |ws| ws.on :open, :message, :close, :error }`
+- Phoenix protocol: topic=`"phoenix"` for heartbeats, `"realtime:{name}"` for channels; events: `phx_join`, `phx_leave`, `phx_reply`, `phx_close`, `phx_error`
+- Realtime modules: Heartbeat, Reconnect, ChannelMessageHandler extracted from Client/Channel to keep under ClassLength 100
+- Realtime WebSocket testing: use `instance_double`/`allow+receive` mocks; don't require actual WebSocket connections
 
 ---
 
@@ -497,4 +504,59 @@
   - PKCE recovery uses a different helper (`append_pkce_recovery_params`) than regular PKCE (`append_pkce_params`) because recovery appends `/PASSWORD_RECOVERY` suffix to the stored verifier
   - Modules included in the same class can call each other's private methods (e.g., UserMethods calls `append_pkce_params` from SignUpMethods)
   - When assessing story completeness, check ALL methods that send auth requests to see if they need PKCE support, not just the ones mentioned in the story title
+---
+
+## 2026-02-10 - US-020
+- What was implemented: Comprehensive test suite for the Auth client (157 tests across 8 files covering all acceptance criteria)
+- Files changed:
+  - `gems/supabase-auth/spec/supabase/auth/client_spec.rb` (new: CF-01 through CF-05, HTTP headers, get_session, get_user tests)
+  - `gems/supabase-auth/spec/supabase/auth/sign_up_spec.rb` (new: SU-01 through SU-07, PKCE sign-up, PH-01 through PH-03, AN-01 through AN-03)
+  - `gems/supabase-auth/spec/supabase/auth/sign_in_spec.rb` (new: SI-01 through SI-04, OA-01 through OA-05, OT-01 through OT-05, IT-01 through IT-02, SS-01 through SS-02, verify_otp, exchange_code_for_session)
+  - `gems/supabase-auth/spec/supabase/auth/session_spec.rb` (new: SM-01 through SM-09, SO-01 through SO-03, UM-01 through UM-04, PR-01 through PR-02, RS-01 through RS-03, reauthenticate)
+  - `gems/supabase-auth/spec/supabase/auth/events_spec.rb` (new: EV-01 through EV-06, listener error handling, EVENTS constant)
+  - `gems/supabase-auth/spec/supabase/auth/admin_spec.rb` (new: AD-01 through AD-13, admin authentication)
+  - `gems/supabase-auth/spec/supabase/auth/mfa_spec.rb` (new: MFA enroll/challenge/verify/unenroll/challenge_and_verify/list_factors/get_authenticator_assurance_level)
+  - `gems/supabase-auth/spec/supabase/auth/utilities_spec.rb` (new: JW-01 through JW-03, B6-01 through B6-05, PK-01 through PK-03, SA-01 through SA-03, LK-01 through LK-04, HE-01 through HE-05, error hierarchy, ErrorGuards, Session model)
+  - `gems/supabase-auth/lib/supabase/auth/session_helpers.rb` (bugfix: moved EXPIRY_MARGIN_SECONDS constant here)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (bugfix: removed duplicate EXPIRY_MARGIN_SECONDS constant)
+- **Learnings for future iterations:**
+  - Constants defined in modules must be scoped to the module where they're used; Ruby constant lookup checks the enclosing module first, NOT the including class
+  - `EXPIRY_MARGIN_SECONDS` was in `Client` but used in `SessionHelpers`; Ruby resolved `SessionHelpers::EXPIRY_MARGIN_SECONDS` (not found) instead of `Client::EXPIRY_MARGIN_SECONDS`
+  - Auth test JWT helper: `build_jwt(payload)` creates valid 3-part JWTs with configurable payload for testing
+  - Session stored via sign_in computes `expires_at` from `expires_in` (future time), not from JWT's `exp` claim; to test expired session loading, store session data directly in storage with past `expires_at`
+  - `Lint/EmptyBlock` cop: use `{ |_args| nil }` instead of empty blocks `{ |_args| }` in tests
+  - `Style/NumericLiterals` cop: use underscores for large numbers (`9_999_999_999` not `9999999999`)
+  - Auth event tests need `sleep(0.1)` to allow async `deliver_initial_session` thread to complete before assertions
+  - Split auth tests by concern (8 files) to keep files manageable and organized
+---
+
+## 2026-02-10 - US-021
+- What was implemented: Realtime Client core connection management with WebSocket support, heartbeat, reconnection with exponential backoff, send buffer, channel management, message routing, and ref counter
+- Files changed:
+  - `gems/supabase-realtime/lib/supabase/realtime.rb` (updated: added requires for all new modules)
+  - `gems/supabase-realtime/lib/supabase/realtime/errors.rb` (new: RealtimeError, RealtimeConnectionError, RealtimeSubscriptionError, RealtimeApiError)
+  - `gems/supabase-realtime/lib/supabase/realtime/serializer.rb` (new: JSON encode/decode for Phoenix protocol messages)
+  - `gems/supabase-realtime/lib/supabase/realtime/push.rb` (new: Push class for request/reply correlation)
+  - `gems/supabase-realtime/lib/supabase/realtime/heartbeat.rb` (new: Heartbeat module with send/handle/start/stop)
+  - `gems/supabase-realtime/lib/supabase/realtime/reconnect.rb` (new: Reconnect module with exponential backoff)
+  - `gems/supabase-realtime/lib/supabase/realtime/channel_message_handler.rb` (new: ChannelMessageHandler module extracted from RealtimeChannel)
+  - `gems/supabase-realtime/lib/supabase/realtime/channel.rb` (new: RealtimeChannel stub for channel lifecycle)
+  - `gems/supabase-realtime/lib/supabase/realtime/client.rb` (new: Client class with connect, disconnect, channel, set_auth, push, make_ref)
+  - `gems/supabase-realtime/spec/supabase/realtime/client_spec.rb` (new: 58 tests for Client)
+  - `gems/supabase-realtime/spec/supabase/realtime/channel_spec.rb` (new: 19 tests for RealtimeChannel)
+  - `gems/supabase-realtime/spec/supabase/realtime/serializer_spec.rb` (new: 5 tests for Serializer)
+  - `gems/supabase-realtime/spec/supabase/realtime/errors_spec.rb` (new: 7 tests for error hierarchy)
+  - `.chief/prds/main/prd.json` (marked US-021 as passes: true)
+- **Learnings for future iterations:**
+  - WebSocket testing: use `instance_double`, `allow/receive` for WebSocket::Client::Simple; don't require actual connections
+  - `Metrics/AbcSize` on `do_connect`: extract `establish_websocket(ws_url)` helper to reduce branch count
+  - `Style/TrivialAccessors`: use `attr_reader` instead of trivial getter methods (`def access_token; @access_token; end`)
+  - Split Client class: `assign_options` + `init_state` helpers to keep `initialize` under AbcSize limit
+  - ChannelMessageHandler module extracted from RealtimeChannel to keep class under ClassLength 100 lines
+  - Use frozen constant arrays with `include?` instead of `||` comparisons (`REJOIN_STATES.include?(state)`)
+  - Phoenix protocol: heartbeat topic is `"phoenix"`, join/leave events are `"phx_join"` / `"phx_leave"`, replies are `"phx_reply"`
+  - HTTP broadcast URL: derived by converting ws->http, stripping /socket/websocket and /realtime/v1, appending /api/broadcast
+  - `websocket-client-simple` `connect` block pattern: use `client_ref = self` to capture reference, call private methods via `client_ref.send(:method)`
+  - Reconnect module uses `Thread.new` with sleep for delayed reconnection; `reset_reconnect` kills the thread
+  - Channel stub provides enough surface for Client to function (subscribe, unsubscribe, rejoin, handle_message, update_access_token); full API in US-022
 ---
