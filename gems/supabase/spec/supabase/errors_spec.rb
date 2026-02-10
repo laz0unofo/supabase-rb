@@ -109,20 +109,26 @@ RSpec.describe "Supabase Error Hierarchy" do
   # Cross-gem hierarchy: all gem base errors inherit from Supabase::Error
   # ---------------------------------------------------------------------------
   describe "gem base errors inherit from Supabase::Error" do
-    it "Auth::AuthError is a Supabase::Error" do
-      expect(Supabase::Auth::AuthError.new).to be_a(Supabase::Error)
+    it "Auth::AuthError is a Module and AuthBaseError is a Supabase::Error" do
+      expect(Supabase::Auth::AuthError).to be_a(Module)
+      expect(Supabase::Auth::AuthBaseError.new).to be_a(Supabase::Error)
+      expect(Supabase::Auth::AuthBaseError.new).to be_a(Supabase::Auth::AuthError)
     end
 
-    it "Storage::StorageError is a Supabase::Error" do
-      expect(Supabase::Storage::StorageError.new).to be_a(Supabase::Error)
+    it "Storage::StorageError is a Module and StorageBaseError is a Supabase::Error" do
+      expect(Supabase::Storage::StorageError).to be_a(Module)
+      expect(Supabase::Storage::StorageBaseError.new).to be_a(Supabase::Error)
+      expect(Supabase::Storage::StorageBaseError.new).to be_a(Supabase::Storage::StorageError)
     end
 
     it "PostgREST::PostgrestError is a Supabase::Error" do
       expect(Supabase::PostgREST::PostgrestError.new).to be_a(Supabase::Error)
     end
 
-    it "Functions::FunctionsError is a Supabase::Error" do
-      expect(Supabase::Functions::FunctionsError.new).to be_a(Supabase::Error)
+    it "Functions::FunctionsError is a Module and FunctionsBaseError is a Supabase::Error" do
+      expect(Supabase::Functions::FunctionsError).to be_a(Module)
+      expect(Supabase::Functions::FunctionsBaseError.new).to be_a(Supabase::Error)
+      expect(Supabase::Functions::FunctionsBaseError.new).to be_a(Supabase::Functions::FunctionsError)
     end
 
     it "Realtime::RealtimeError is a Supabase::Error" do

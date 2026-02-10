@@ -17,7 +17,7 @@ RSpec.describe Supabase::Client do
     allow(Supabase::Realtime::Client).to receive(:new).and_return(realtime_client)
     allow(Supabase::Storage::Client).to receive(:new).and_return(storage_client)
     allow(auth_client).to receive(:on_auth_state_change).and_return(subscription)
-    allow(auth_client).to receive(:get_session).and_return({ data: { session: nil }, error: nil })
+    allow(auth_client).to receive(:get_session).and_return({ session: nil })
     allow(realtime_client).to receive(:set_auth)
   end
 
@@ -351,12 +351,12 @@ RSpec.describe Supabase::Client do
     end
 
     it "SD-03: delegates rpc() to PostgREST client" do
-      rpc_result = { data: [1, 2, 3], error: nil }
-      allow(postgrest_client).to receive(:rpc).with("my_function", args: { x: 1 }).and_return(rpc_result)
+      rpc_response = double("Response", data: [1, 2, 3])
+      allow(postgrest_client).to receive(:rpc).with("my_function", args: { x: 1 }).and_return(rpc_response)
 
       result = client.rpc("my_function", args: { x: 1 })
 
-      expect(result).to eq(rpc_result)
+      expect(result).to eq(rpc_response)
     end
 
     it "SD-04: delegates channel() to Realtime client" do
@@ -574,7 +574,7 @@ RSpec.describe Supabase::Client do
     it "uses session token for functions headers in session mode" do
       session = Supabase::Auth::Session.new("access_token" => "session-token", "refresh_token" => "rt")
       allow(auth_client).to receive(:get_session).and_return(
-        { data: { session: session }, error: nil }
+        { session: session }
       )
       allow(Supabase::Functions::Client).to receive(:new).and_return(
         instance_double(Supabase::Functions::Client)

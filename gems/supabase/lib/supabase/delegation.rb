@@ -25,7 +25,8 @@ module Supabase
     #
     # @param function_name [String] the name of the database function to call
     # @param options [Hash] additional options passed to the RPC call (e.g., args, count)
-    # @return [Hash] the RPC response as { data:, error: }
+    # @return [Supabase::PostgREST::Response] the RPC response
+    # @raise [Supabase::PostgREST::PostgrestError] on failure
     def rpc(function_name, **options)
       @postgrest_client.rpc(function_name, **options)
     end

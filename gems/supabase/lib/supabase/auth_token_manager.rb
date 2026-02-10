@@ -54,7 +54,7 @@ module Supabase
         @access_token_callback.call
       elsif @auth_client
         session_result = @auth_client.get_session
-        session_result.dig(:data, :session)&.access_token
+        session_result[:session]&.access_token
       end
     rescue StandardError
       @api_key
