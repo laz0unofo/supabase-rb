@@ -38,6 +38,10 @@
 - `Style/KeywordParametersOrder`: required kwargs must come before optional kwargs in method signatures
 - Storage API pattern: BucketApi module extracted from Client, StorageFileApi returned by `from(bucket_id)`
 - Storage API endpoints: `/bucket` (list), `/bucket/{id}` (get/update/delete), `/bucket/{id}/empty` (empty)
+- Storage file endpoints: `/object/{bucket}/{path}` (upload/update/download/exists), `/object/move`, `/object/copy`, `/object/info/{bucket}/{path}`
+- StorageFileApi has independent HTTP helpers (not shared with Client); each class handles its own Faraday connections
+- Storage upload headers use lowercase keys: `cache-control`, `content-type`, `x-upsert`, `x-metadata`
+- Storage move/copy use camelCase JSON body keys: `bucketId`, `sourceKey`, `destinationBucket`, `destinationKey`
 
 ---
 
@@ -236,4 +240,32 @@
   - `create_bucket` sends both `id` and `name` fields (both set to the bucket_id)
   - `update_bucket` requires `public:` field in the body
   - Running specs from root requires `bundle exec rake supabase_storage:spec` (not direct `rspec` which lacks `-I` flags)
+---
+
+## 2026-02-10 - US-010
+- What was implemented: Storage Client file operations (upload, update, download, move, copy, remove, info, exists?) with path normalization
+- Files changed:
+  - `gems/supabase-storage/lib/supabase/storage/file_operations.rb` (new: FileOperations module with upload, update, download, move, copy, remove, info, exists?)
+  - `gems/supabase-storage/lib/supabase/storage/storage_file_api.rb` (updated: includes FileOperations, added private helpers for path normalization, upload headers, body reading, download URLs, HTTP, response handling)
+  - `.chief/prds/main/prd.json` (marked US-010 as passes: true)
+- **Implementation details:**
+  - FileOperations module extracted from StorageFileApi to keep class under 100 lines
+  - `upload` sends POST to `/object/{bucket}/{path}` with cache-control, content-type, x-upsert, x-metadata headers
+  - `update` sends PUT to same endpoint (replaces file)
+  - `download` sends GET to `/object/{bucket}/{path}`; with transform uses `/render/image/authenticated/{bucket}/{path}?{params}`
+  - `move` sends POST to `/object/move` with bucketId, sourceKey, destinationBucket, destinationKey
+  - `copy` sends POST to `/object/copy` with same body structure
+  - `remove` sends DELETE to `/object/{bucket}` with `{ prefixes: paths }` body
+  - `info` sends GET to `/object/info/{bucket}/{path}`
+  - `exists?` sends HEAD to `/object/{bucket}/{path}`, returns boolean based on status
+  - Path normalization: strips leading/trailing slashes, collapses consecutive slashes
+  - Body reading: IO/StringIO read via `.read`, String via `.to_s`
+  - Default content-type is `application/octet-stream`
+- **Learnings for future iterations:**
+  - StorageFileApi has its own HTTP helpers (perform_request, build_connection, handle_response) independent of Client
+  - FileOperations module pattern follows same extraction as BucketApi, Filters, RangeFilters, Transforms, CrudBuilder
+  - Upload headers use lowercase keys (`cache-control`, `content-type`, `x-upsert`, `x-metadata`) per Supabase convention
+  - `move` and `copy` use camelCase keys in JSON body (bucketId, sourceKey, etc.) to match Supabase API
+  - `exists?` uses HEAD method and checks status range; returns `{ data: true/false, error: nil }`
+  - `download` returns raw binary body (not JSON-parsed) in `{ data: body, error: nil }`
 ---

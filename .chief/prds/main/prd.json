@@ -195,7 +195,8 @@
         "Path normalization: strips leading/trailing slashes, collapses consecutive slashes"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-011",
