@@ -39,21 +39,19 @@ module Supabase
       private
 
       def handle_maybe_single(result)
-        return result if result[:error]
-
-        data = result[:data]
+        data = result.data
         if data.is_a?(Array)
           if data.length > 1
-            error = PostgrestError.new(
+            raise PostgrestError.new(
               "JSON object requested, multiple (or no) rows returned",
               details: "Results contain #{data.length} rows",
               code: "PGRST116"
             )
-            raise error if @throw_on_error
-
-            return result.merge(data: nil, error: error)
           end
-          return result.merge(data: data.first)
+          return Response.new(
+            data: data.first, count: result.count,
+            status: result.status, status_text: result.status_text
+          )
         end
         result
       end

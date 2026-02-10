@@ -30,11 +30,10 @@ RSpec.describe Supabase::PostgREST::Client do
     it "CI-04: stores the custom fetch proc" do
       fetch_proc = ->(_timeout) { Faraday.new }
       c = described_class.new(url: base_url, headers: {}, fetch: fetch_proc)
-      # Verify fetch is used by calling rpc with custom fetch
       stub_request(:post, "#{base_url}/rpc/test_fn")
         .to_return(status: 200, body: "[]", headers: { "content-type" => "application/json" })
       result = c.rpc("test_fn")
-      expect(result[:status]).to be_a(Integer)
+      expect(result.status).to be_a(Integer)
     end
 
     it "CI-05: stores the default timeout" do
@@ -42,7 +41,7 @@ RSpec.describe Supabase::PostgREST::Client do
       stub_request(:post, "#{base_url}/rpc/test_fn")
         .to_return(status: 200, body: "[]", headers: { "content-type" => "application/json" })
       result = c.rpc("test_fn")
-      expect(result[:error]).to be_nil
+      expect(result).to be_a(Supabase::PostgREST::Response)
     end
 
     it "CI-06: defaults schema to nil" do
@@ -118,8 +117,7 @@ RSpec.describe Supabase::PostgREST::Client do
 
       result = client.rpc("my_func", args: { x: 1 })
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("result" => 42)
-      expect(result[:error]).to be_nil
+      expect(result.data).to eq("result" => 42)
     end
 
     it "RP-02: supports GET mode with args as query params" do
@@ -128,7 +126,7 @@ RSpec.describe Supabase::PostgREST::Client do
 
       result = client.rpc("my_func", args: { x: 1, y: 2 }, get: true)
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq([])
+      expect(result.data).to eq([])
     end
 
     it "RP-03: supports HEAD mode" do
@@ -158,7 +156,7 @@ RSpec.describe Supabase::PostgREST::Client do
 
       result = client.rpc("count_fn", count: :exact)
       expect(stub).to have_been_requested
-      expect(result[:count]).to eq(42)
+      expect(result.count).to eq(42)
     end
 
     it "RP-06: GET mode with empty args omits query string" do

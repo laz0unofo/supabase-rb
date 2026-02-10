@@ -2,6 +2,7 @@
 
 require_relative "postgrest/version"
 require_relative "postgrest/errors"
+require_relative "postgrest/response"
 require_relative "postgrest/builder"
 require_relative "postgrest/filters"
 require_relative "postgrest/range_filters"

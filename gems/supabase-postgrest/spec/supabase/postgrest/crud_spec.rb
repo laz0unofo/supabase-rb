@@ -14,9 +14,8 @@ RSpec.describe "PostgREST CRUD Operations" do
 
       result = client.from("users").select.execute
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq([{ "id" => 1 }])
-      expect(result[:error]).to be_nil
-      expect(result[:status]).to eq(200)
+      expect(result.data).to eq([{ "id" => 1 }])
+      expect(result.status).to eq(200)
     end
 
     it "SE-02: select with specific columns" do
@@ -54,7 +53,7 @@ RSpec.describe "PostgREST CRUD Operations" do
 
       result = client.from("users").select(count: :exact).execute
       expect(stub).to have_been_requested
-      expect(result[:count]).to eq(10)
+      expect(result.count).to eq(10)
     end
 
     it "SE-06: select with count: :planned" do
@@ -90,7 +89,7 @@ RSpec.describe "PostgREST CRUD Operations" do
 
       result = client.from("users").insert({ name: "Alice", email: "alice@test.com" }).execute
       expect(stub).to have_been_requested
-      expect(result[:status]).to eq(201)
+      expect(result.status).to eq(201)
     end
 
     it "IN-02: bulk insert sets columns param from union of keys" do
@@ -137,7 +136,7 @@ RSpec.describe "PostgREST CRUD Operations" do
 
       result = client.from("users").insert({ name: "Alice" }).select.execute
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq([{ "id" => 1, "name" => "Alice" }])
+      expect(result.data).to eq([{ "id" => 1, "name" => "Alice" }])
     end
   end
 
@@ -230,7 +229,7 @@ RSpec.describe "PostgREST CRUD Operations" do
 
       result = client.from("users").delete.eq("id", 1).select.execute
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq([{ "id" => 1, "name" => "Alice" }])
+      expect(result.data).to eq([{ "id" => 1, "name" => "Alice" }])
     end
   end
 end

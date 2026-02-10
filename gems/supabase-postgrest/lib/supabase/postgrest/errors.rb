@@ -36,16 +36,16 @@ module Supabase
   end
 
   module PostgREST
-    # Error returned by PostgREST when a query fails.
+    # Error raised by PostgREST when a query fails.
     # Contains structured fields matching the PostgREST error response format.
-    class PostgrestError < Supabase::Error
+    class PostgrestError < Supabase::ApiError
       attr_reader :details, :hint, :code
 
-      def initialize(message = nil, details: nil, hint: nil, code: nil)
-        @details = details
-        @hint = hint
-        @code = code
-        super(message)
+      def initialize(message = nil, **options)
+        @details = options[:details]
+        @hint = options[:hint]
+        @code = options[:code]
+        super(message, status: options[:status], context: options[:context])
       end
     end
   end

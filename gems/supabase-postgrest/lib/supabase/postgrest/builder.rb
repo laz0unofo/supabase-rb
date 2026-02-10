@@ -24,16 +24,11 @@ module Supabase
         @body = options[:body]
         @fetch = options[:fetch]
         @timeout = options[:timeout]
-        @throw_on_error = false
       end
 
-      # Returns a new builder with throw_on_error enabled.
-      # When enabled, PostgrestError is raised instead of returned in the result hash.
-      def throw_on_error
-        dup_with { |b| b.instance_variable_set(:@throw_on_error, true) }
-      end
-
-      # Executes the built request and returns the result hash.
+      # Executes the built request and returns a Response object.
+      # @return [Response] on success
+      # @raise [PostgrestError] on HTTP error or network failure
       def execute
         apply_schema_headers
         response = perform_request

@@ -78,14 +78,14 @@ RSpec.describe "PostgREST Transforms" do
     expect(builder.headers["Accept"]).to eq("application/vnd.pgrst.object+json")
   end
 
-  it "TR-13: maybe_single sets Accept header and flag" do
+  it "TR-13: maybe_single sets Accept header and unwraps single element" do
     stub = stub_request(:get, "#{base_url}/users?select=*")
            .with(headers: { "Accept" => "application/vnd.pgrst.object+json" })
            .to_return(status: 200, body: '[{"id":1}]', headers: { "content-type" => "application/json" })
 
     result = select_builder.maybe_single.execute
     expect(stub).to have_been_requested
-    expect(result[:data]).to eq("id" => 1)
+    expect(result.data).to eq("id" => 1)
   end
 
   it "TR-14: maybe_single returns nil for empty array" do
@@ -93,17 +93,17 @@ RSpec.describe "PostgREST Transforms" do
       .to_return(status: 200, body: "[]", headers: { "content-type" => "application/json" })
 
     result = select_builder.maybe_single.execute
-    expect(result[:data]).to be_nil
+    expect(result.data).to be_nil
   end
 
-  it "TR-15: maybe_single returns error for multiple rows" do
+  it "TR-15: maybe_single raises error for multiple rows" do
     stub_request(:get, "#{base_url}/users?select=*")
       .to_return(status: 200, body: '[{"id":1},{"id":2}]', headers: { "content-type" => "application/json" })
 
-    result = select_builder.maybe_single.execute
-    expect(result[:data]).to be_nil
-    expect(result[:error]).to be_a(Supabase::PostgREST::PostgrestError)
-    expect(result[:error].code).to eq("PGRST116")
+    expect { select_builder.maybe_single.execute }
+      .to raise_error(Supabase::PostgREST::PostgrestError) { |e|
+        expect(e.code).to eq("PGRST116")
+      }
   end
 
   it "TR-16: csv sets Accept: text/csv" do

@@ -58,7 +58,8 @@ module Supabase
       # @param head [Boolean] Use HEAD method (returns no body)
       # @param get [Boolean] Use GET method (pass args as query params)
       # @param count [Symbol, nil] Count algorithm (:exact, :planned, :estimated)
-      # @return [Hash] { data:, error:, count:, status:, status_text: }
+      # @return [Response] on success
+      # @raise [PostgrestError] on HTTP error or network failure
       def rpc(function_name, args: {}, head: false, get: false, count: nil)
         builder = build_rpc_builder(function_name, args, head: head, get: get, count: count)
         builder.execute
