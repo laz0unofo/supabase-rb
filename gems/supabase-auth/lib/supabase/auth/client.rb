@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require_relative "http_handler"
+require_relative "sign_up_methods"
+require_relative "sign_in_methods"
+require_relative "verify_methods"
 
 module Supabase
   module Auth
@@ -10,6 +13,9 @@ module Supabase
     class Client
       include HttpHandler
       include ErrorGuards
+      include SignUpMethods
+      include SignInMethods
+      include VerifyMethods
 
       EXPIRY_MARGIN_SECONDS = 90
       DEFAULT_LOCK_TIMEOUT = 10

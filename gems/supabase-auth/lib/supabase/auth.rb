@@ -3,6 +3,7 @@
 require_relative "auth/version"
 require_relative "auth/errors"
 require_relative "auth/jwt"
+require_relative "auth/pkce"
 require_relative "auth/memory_storage"
 require_relative "auth/session"
 require_relative "auth/lock"

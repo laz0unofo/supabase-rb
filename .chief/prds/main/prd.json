@@ -272,7 +272,8 @@
         "exchange_code_for_session(auth_code) - POST /token?grant_type=pkce; retrieves/deletes stored code verifier; emits appropriate events"
       ],
       "priority": 14,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-015",

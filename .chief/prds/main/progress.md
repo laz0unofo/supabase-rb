@@ -46,6 +46,20 @@
 - Storage list endpoint: POST to `/object/list/{bucket}` with body `{ prefix:, limit:, offset:, sortBy:, search: }`
 - `get_public_url` is pure URL construction (no HTTP); all other URL methods make HTTP calls
 - `Style/IfUnlessModifier`: use modifier form for single-line if bodies (e.g., `result[:key] = value if condition`)
+- Auth error hierarchy: AuthError (base), AuthApiError, AuthRetryableFetchError, AuthUnknownError, AuthSessionMissingError, AuthInvalidTokenResponseError, AuthInvalidCredentialsError, AuthWeakPasswordError, AuthPKCEGrantCodeExchangeError
+- Auth error classification: 502/503/504 -> AuthRetryableFetchError, 4xx+JSON -> AuthApiError, 4xx+non-JSON -> AuthUnknownError, Faraday::Error -> AuthRetryableFetchError(status: 0), weak_password code -> AuthWeakPasswordError
+- Auth HTTP layer sends `X-Supabase-Api-Version: 2024-01-01` and `X-Client-Info: supabase-rb/{VERSION}` on all requests
+- `Naming/AccessorMethodName` cop flags `get_*` methods; disable inline for API-convention names (`get_session`, `get_user`)
+- `Naming/BlockForwarding` cop: use `&` anonymous forwarding (`def method(&)`) instead of named `&block` when just yielding
+- `Lint/AmbiguousOperatorPrecedence`: wrap mixed `+` and `*` expressions with parentheses
+- `Style/MutableConstant`: freeze interpolated string constants (`"supabase-rb/#{VERSION}".freeze`)
+- Auth Client uses ErrorClassifier module to classify HTTP responses into error types, and HttpHandler module for HTTP layer
+- Auth Session model computes `expires_at` from `expires_in` if not explicitly provided
+- Auth sign-in/sign-up split into 3 modules: SignUpMethods, SignInMethods, VerifyMethods (included by Client)
+- PKCE module uses `module_function` for stateless utility methods; verifier stored under `{storage_key}-code-verifier`
+- Auth `handle_session_response` saves session + emits `:signed_in`; `handle_sign_up_response` distinguishes session vs confirmation
+- OAuth `sign_in_with_oauth` builds URL synchronously (no HTTP); all other sign-in methods make HTTP calls
+- Code verifier with `/PASSWORD_RECOVERY` suffix triggers `:password_recovery` event in `exchange_code_for_session`
 
 ---
 
@@ -327,4 +341,56 @@
   - Split storage tests across 5 files by concern: client, bucket_api, file_operations, url_operations, errors
   - `hash_including` matcher in WebMock works well for asserting partial body matches (e.g., FL-02 through FL-05)
   - Rubocop `Style/StringLiterals`: prefer double-quoted strings even for `'{}'` literal
+---
+
+## 2026-02-10 - US-013
+- What was implemented: Auth Client core infrastructure with error hierarchy, storage adapter, session model, JWT decoder, lock mechanism, HTTP handler, error classifier, and Client class
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth.rb` (updated: added requires for all new modules)
+  - `gems/supabase-auth/lib/supabase/auth/errors.rb` (new: AuthError, AuthApiError, AuthRetryableFetchError, AuthUnknownError, AuthSessionMissingError, AuthInvalidTokenResponseError, AuthInvalidCredentialsError, AuthWeakPasswordError, AuthPKCEGrantCodeExchangeError, ErrorGuards module)
+  - `gems/supabase-auth/lib/supabase/auth/memory_storage.rb` (new: MemoryStorage with get_item/set_item/remove_item)
+  - `gems/supabase-auth/lib/supabase/auth/session.rb` (new: Session model with expires_at computation, to_h, expired?)
+  - `gems/supabase-auth/lib/supabase/auth/jwt.rb` (new: JWT module with decode and base64url_decode)
+  - `gems/supabase-auth/lib/supabase/auth/lock.rb` (new: Lock class with mutex-based with_lock and configurable timeout)
+  - `gems/supabase-auth/lib/supabase/auth/error_classifier.rb` (new: ErrorClassifier module for HTTP response classification)
+  - `gems/supabase-auth/lib/supabase/auth/http_handler.rb` (new: HttpHandler module with request, build_connection, default_headers)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (new: Client class with constructor, get_session, get_user, session management)
+  - `.chief/prds/main/prd.json` (marked US-013 as passes: true)
+- **Learnings for future iterations:**
+  - Auth Client uses `**options` in constructor to keep under ParameterLists limit (same pattern as Functions/PostgREST)
+  - `Naming/AccessorMethodName` cop flags `get_*` methods; use `rubocop:disable` inline for API-convention names like `get_session`
+  - `Naming/BlockForwarding` cop: use `&` anonymous forwarding (`def with_lock(&)`) instead of named `&block` when just yielding
+  - `Style/Next` cop: prefer `next if condition` over `unless condition` inside loops for skip-iteration logic
+  - `Lint/AmbiguousOperatorPrecedence`: wrap mixed `+` and `*` expressions with parentheses (e.g., base64 padding calc)
+  - `Style/MutableConstant`: freeze interpolated string constants (`"supabase-rb/#{VERSION}".freeze`)
+  - ErrorClassifier extracts error codes from `error_code`, `code` keys; messages from `msg`, `message`, `error_description`, `error` keys
+  - Auth error classification: 502/503/504 -> AuthRetryableFetchError, 4xx+JSON -> AuthApiError, 4xx+non-JSON -> AuthUnknownError, Faraday::Error -> AuthRetryableFetchError(status: 0)
+  - weak_password code produces AuthWeakPasswordError with `reasons` array from `weak_password.reasons`
+  - Session model computes `expires_at` from `expires_in` if not explicitly provided
+  - Lock uses `Mutex#try_lock` + sleep loop instead of blocking `synchronize` to support configurable timeout
+---
+
+## 2026-02-10 - US-014
+- What was implemented: Auth Client sign-up and sign-in methods (password, OAuth, OTP, ID token, SSO, anonymous) with PKCE support and OTP verification/code exchange
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth.rb` (updated: added require for pkce module)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (updated: added requires for sign_up_methods, sign_in_methods, verify_methods; includes modules)
+  - `gems/supabase-auth/lib/supabase/auth/pkce.rb` (new: PKCE module with generate_code_verifier, generate_code_challenge, challenge_method)
+  - `gems/supabase-auth/lib/supabase/auth/sign_up_methods.rb` (new: SignUpMethods module with sign_up, sign_in_anonymously, helper methods)
+  - `gems/supabase-auth/lib/supabase/auth/sign_in_methods.rb` (new: SignInMethods module with sign_in_with_password, sign_in_with_oauth, sign_in_with_otp, sign_in_with_id_token, sign_in_with_sso)
+  - `gems/supabase-auth/lib/supabase/auth/verify_methods.rb` (new: VerifyMethods module with verify_otp, exchange_code_for_session)
+  - `.chief/prds/main/prd.json` (marked US-014 as passes: true)
+- **Implementation details:**
+  - SignUpMethods: sign_up validates email/phone presence, includes PKCE params when flow_type is :pkce, handles session vs confirmation responses
+  - SignInMethods: sign_in_with_password POST to /token?grant_type=password; sign_in_with_oauth builds authorize URL (no HTTP); sign_in_with_otp POST to /otp with PKCE; sign_in_with_id_token POST to /token?grant_type=id_token; sign_in_with_sso POST to /sso with PKCE
+  - VerifyMethods: verify_otp POST to /verify with session handling; exchange_code_for_session retrieves/deletes stored verifier, POST to /token?grant_type=pkce, emits PASSWORD_RECOVERY or SIGNED_IN based on verifier suffix
+  - PKCE: 56 random bytes -> 112-char hex verifier, SHA-256 -> base64url challenge, stored under {storage_key}-code-verifier
+  - Shared helpers: handle_session_response saves session and emits SIGNED_IN; handle_sign_up_response distinguishes session vs confirmation; append_captcha adds gotrue_meta_security; append_pkce_params stores verifier and adds challenge params
+- **Learnings for future iterations:**
+  - Auth sign-in/sign-up methods split into 3 modules (SignUpMethods, SignInMethods, VerifyMethods) to keep under ClassLength 100 limit
+  - PKCE module uses `module_function` pattern for stateless utility methods (same as ErrorClassifier)
+  - `append_pkce_params` lives in SignUpMethods since it's used by both sign_up and sign_in methods (shared via include)
+  - OAuth sign_in builds URL synchronously (no HTTP call); all other sign-in methods make HTTP calls
+  - Code verifier with `/PASSWORD_RECOVERY` suffix triggers `:password_recovery` event instead of `:signed_in`
+  - `exchange_code_for_session` strips the suffix before sending to API, but uses original verifier for event detection
 ---
