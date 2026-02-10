@@ -253,7 +253,8 @@
         "JWT decoding utility (decode without signature verification, base64url)"
       ],
       "priority": 13,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-014",
