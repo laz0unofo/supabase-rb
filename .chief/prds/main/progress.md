@@ -60,6 +60,11 @@
 - Auth `handle_session_response` saves session + emits `:signed_in`; `handle_sign_up_response` distinguishes session vs confirmation
 - OAuth `sign_in_with_oauth` builds URL synchronously (no HTTP); all other sign-in methods make HTTP calls
 - Code verifier with `/PASSWORD_RECOVERY` suffix triggers `:password_recovery` event in `exchange_code_for_session`
+- Auth Client module extraction pattern: SessionHelpers, SessionMethods, AutoRefresh, UserMethods all included by Client
+- `Naming/AccessorMethodName` cop: `get_user(jwt: nil)` with params does NOT trigger the cop; only no-arg `get_*` triggers it
+- Auth session management: `set_session` decodes JWT -> validates -> refreshes if expired -> saves -> emits SIGNED_IN + TOKEN_REFRESHED
+- Auth auto-refresh: Thread-based, 30s interval, refresh when <= 3 ticks from expiry, exponential backoff (200ms base, max 10 retries)
+- Auth sign_out: remove local session first, then POST /logout for non-local scopes (:global, :others)
 
 ---
 
@@ -393,4 +398,32 @@
   - OAuth sign_in builds URL synchronously (no HTTP call); all other sign-in methods make HTTP calls
   - Code verifier with `/PASSWORD_RECOVERY` suffix triggers `:password_recovery` event instead of `:signed_in`
   - `exchange_code_for_session` strips the suffix before sending to API, but uses original verifier for event detection
+---
+
+## 2026-02-10 - US-015
+- What was implemented: Auth Client session management (set_session, refresh_session, sign_out), auto-refresh background thread, and user management methods (update_user, reset_password_for_email, reauthenticate, resend)
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (updated: added includes for new modules, extracted private helpers to SessionHelpers, added auto-refresh instance vars, fixed get_user response wrapping)
+  - `gems/supabase-auth/lib/supabase/auth/session_helpers.rb` (new: extracted load_session, save_session, remove_session, session_needs_refresh?, current_access_token, refresh_access_token, emit_event, log_debug)
+  - `gems/supabase-auth/lib/supabase/auth/session_methods.rb` (new: SessionMethods module with set_session, refresh_session, sign_out, plus private helpers token_expired?, build_and_save_session, refresh_and_save)
+  - `gems/supabase-auth/lib/supabase/auth/auto_refresh.rb` (new: AutoRefresh module with start_auto_refresh, stop_auto_refresh, background thread loop, exponential backoff retry)
+  - `gems/supabase-auth/lib/supabase/auth/user_methods.rb` (new: UserMethods module with update_user, reset_password_for_email, reauthenticate, resend)
+  - `.chief/prds/main/prd.json` (marked US-015 as passes: true)
+- **Implementation details:**
+  - `set_session` decodes JWT, validates structure, refreshes if expired, saves session, emits SIGNED_IN and TOKEN_REFRESHED
+  - `refresh_session` uses provided or stored refresh token; POST /token?grant_type=refresh_token
+  - `sign_out` supports scopes :global, :local, :others; removes local session, stops auto-refresh, emits SIGNED_OUT; POST /logout for non-local scopes
+  - Auto-refresh: background Thread checks every 30s; refreshes when <= 3 ticks from expiry; exponential backoff (200ms base, doubles, max 10 retries); only retries AuthRetryableFetchError
+  - `update_user` emits USER_UPDATED on success
+  - `reset_password_for_email` POST /recover with optional redirect_to and captcha_token
+  - `reauthenticate` GET /reauthenticate
+  - `resend` POST /resend with type, email/phone
+  - SessionHelpers module extracted from Client to keep class under 100 lines
+- **Learnings for future iterations:**
+  - Extract private helpers into modules (SessionHelpers) to keep Client class under ClassLength 100 lines
+  - `Naming/AccessorMethodName` cop: `get_user(jwt: nil)` with params doesn't trigger the cop (only no-arg `get_*` triggers); `set_session` also doesn't trigger it
+  - `Metrics/MethodLength` (max 20): split large methods by extracting helpers like `token_expired?` and `build_and_save_session`
+  - `Style/IfUnlessModifier`: use modifier form for single-line conditional returns
+  - Auto-refresh uses `Thread.new` + `@auto_refresh_running` flag for graceful stop
+  - `sign_out` calls `stop_auto_refresh` directly (module included, no need for `respond_to?` check)
 ---

@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
 require_relative "http_handler"
+require_relative "session_helpers"
 require_relative "sign_up_methods"
 require_relative "sign_in_methods"
 require_relative "verify_methods"
+require_relative "session_methods"
+require_relative "auto_refresh"
+require_relative "user_methods"
 
 module Supabase
   module Auth
@@ -13,9 +17,13 @@ module Supabase
     class Client
       include HttpHandler
       include ErrorGuards
+      include SessionHelpers
       include SignUpMethods
       include SignInMethods
       include VerifyMethods
+      include SessionMethods
+      include AutoRefresh
+      include UserMethods
 
       EXPIRY_MARGIN_SECONDS = 90
       DEFAULT_LOCK_TIMEOUT = 10
@@ -32,6 +40,8 @@ module Supabase
         @debug = options[:debug] || false
         @listeners = []
         @current_session = nil
+        @auto_refresh_running = false
+        @auto_refresh_thread = nil
       end
 
       # Returns the currently stored session, refreshing if expired.
@@ -54,7 +64,10 @@ module Supabase
         token = jwt || current_access_token
         return { data: { user: nil }, error: AuthSessionMissingError.new("No session found") } unless token
 
-        request(:get, "/user", jwt: token)
+        result = request(:get, "/user", jwt: token)
+        return result if result[:error]
+
+        { data: { user: result[:data] }, error: nil }
       end
 
       private
@@ -71,60 +84,6 @@ module Supabase
         return storage if storage
 
         MemoryStorage.new
-      end
-
-      def load_session
-        return @current_session if @current_session
-
-        json_str = @storage.get_item(@storage_key)
-        return nil unless json_str
-
-        data = JSON.parse(json_str)
-        Session.new(data)
-      rescue JSON::ParserError
-        nil
-      end
-
-      def save_session(session)
-        @current_session = session
-        @storage.set_item(@storage_key, JSON.generate(session.to_h)) if @persist_session
-      end
-
-      def remove_session
-        @current_session = nil
-        @storage.remove_item(@storage_key)
-      end
-
-      def session_needs_refresh?(session)
-        return false unless session.expires_at
-
-        Time.now.to_i + EXPIRY_MARGIN_SECONDS >= session.expires_at
-      end
-
-      def current_access_token
-        session = @current_session || load_session
-        session&.access_token
-      end
-
-      def refresh_access_token(refresh_token)
-        result = request(:post, "/token?grant_type=refresh_token", body: { refresh_token: refresh_token })
-        return result if result[:error]
-
-        session = Session.new(result[:data])
-        save_session(session)
-        { data: { session: session }, error: nil }
-      end
-
-      def emit_event(event, session)
-        @listeners.each do |listener|
-          listener.call(event, session)
-        rescue StandardError => e
-          log_debug("Listener error: #{e.message}")
-        end
-      end
-
-      def log_debug(message)
-        warn "[Supabase::Auth] #{message}" if @debug
       end
     end
   end

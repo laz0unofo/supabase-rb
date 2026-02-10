@@ -294,7 +294,8 @@
         "resend(type:, email: nil, phone: nil) - POST /resend"
       ],
       "priority": 15,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-016",
