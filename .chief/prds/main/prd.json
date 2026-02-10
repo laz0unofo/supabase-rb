@@ -345,7 +345,8 @@
         "admin.sign_out(jwt, scope: :global) - POST /logout with provided JWT"
       ],
       "priority": 18,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-019",

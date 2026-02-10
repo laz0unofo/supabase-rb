@@ -65,6 +65,12 @@
 - Auth session management: `set_session` decodes JWT -> validates -> refreshes if expired -> saves -> emits SIGNED_IN + TOKEN_REFRESHED
 - Auth auto-refresh: Thread-based, 30s interval, refresh when <= 3 ticks from expiry, exponential backoff (200ms base, max 10 retries)
 - Auth sign_out: remove local session first, then POST /logout for non-local scopes (:global, :others)
+- MFA API uses a separate class (MfaApi) accessed via `client.mfa`; communicates with Client via `@client.send(:private_method)`
+- `Lint/UselessConstantScoping`: constants under `private` are flagged; place constants above `private` in class body
+- `Style/MultipleComparison`: use `Array#include?` with frozen constant instead of chaining `||` comparisons
+- Admin API uses separate class (AdminApi) accessed via `client.admin`; follows same pattern as MfaApi with AdminMethods module
+- Admin endpoints: `/admin/users` (CRUD), `/invite` (email invite), `/admin/generate_link` (link generation), `/logout` (admin sign out with JWT param)
+- `generate_link` extracts link properties (action_link, email_otp, hashed_token, redirect_to, verification_type) from response data
 
 ---
 
@@ -426,4 +432,53 @@
   - `Style/IfUnlessModifier`: use modifier form for single-line conditional returns
   - Auto-refresh uses `Thread.new` + `@auto_refresh_running` flag for graceful stop
   - `sign_out` calls `stop_auto_refresh` directly (module included, no need for `respond_to?` check)
+---
+
+## 2026-02-10 - US-017
+- What was implemented: Auth Client MFA API with enroll, challenge, verify, unenroll, challenge_and_verify, list_factors, and get_authenticator_assurance_level
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth/mfa_api.rb` (new: MfaApi class with all MFA methods)
+  - `gems/supabase-auth/lib/supabase/auth/mfa_methods.rb` (new: MfaMethods module with mfa accessor and internal helpers)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (updated: added requires and includes for MFA modules)
+  - `.chief/prds/main/prd.json` (marked US-017 as passes: true)
+- **Implementation details:**
+  - MfaApi is a separate class (not a module) that receives the Client instance; accessed via `client.mfa`
+  - `enroll` sends POST /factors with factor_type, optional friendly_name, issuer, phone
+  - `challenge` sends POST /factors/{id}/challenge
+  - `verify` sends POST /factors/{id}/verify; saves aal2 session and emits :mfa_challenge_verified
+  - `unenroll` sends DELETE /factors/{id}
+  - `challenge_and_verify` is a convenience combining challenge + verify in one call
+  - `list_factors` calls get_user, extracts factors array, categorizes into :all, :totp, :phone (verified only)
+  - `get_authenticator_assurance_level` decodes JWT from current session, reads aal/amr claims, computes current/next levels
+  - MfaMethods module provides `mfa` accessor (lazy-initialized) and private helpers `mfa_request`, `handle_mfa_verify`
+  - MfaApi communicates with Client via `@client.send(:private_method)` for authenticated requests
+- **Learnings for future iterations:**
+  - MFA uses a separate class (MfaApi) rather than a module because it needs its own state (@client reference) and acts as a namespace
+  - `Lint/UselessConstantScoping`: constants under `private` get flagged; move constants above `private` in the class body
+  - `Metrics/AbcSize`/`CyclomaticComplexity`: extract factor filtering into helpers (`extract_factors`, `categorize_factors`, `verified_factors_by_type`)
+  - `Style/MultipleComparison`: use `Array#include?` with a frozen constant instead of `||` comparisons (e.g., `MFA_METHODS.include?(entry["method"])`)
+  - AAL computation: aal1 -> aal2 only when no MFA method is present in amr; if MFA already in amr, next_level == current_level
+---
+
+## 2026-02-10 - US-018
+- What was implemented: Auth Client Admin API with create_user, list_users, get_user_by_id, update_user_by_id, delete_user, invite_user_by_email, generate_link, and admin sign_out
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth/admin_api.rb` (new: AdminApi class with all admin user management methods)
+  - `gems/supabase-auth/lib/supabase/auth/admin_methods.rb` (new: AdminMethods module with admin accessor and admin_request helper)
+  - `gems/supabase-auth/lib/supabase/auth/client.rb` (updated: added requires and includes for AdminApi/AdminMethods)
+  - `.chief/prds/main/prd.json` (marked US-018 as passes: true)
+- **Implementation details:**
+  - AdminApi follows same pattern as MfaApi: separate class accessed via `client.admin`, communicates with Client via `@client.send(:admin_request)`
+  - AdminMethods module provides `admin` accessor (lazy-initialized) and `admin_request` private helper
+  - `admin_request` uses the apikey header or Authorization header as the token (service role key)
+  - `create_user` body split into `build_create_user_credentials` + `apply_create_user_metadata` to satisfy AbcSize/CyclomaticComplexity cops
+  - `list_users` builds query string from page/per_page params using URI.encode_www_form
+  - `generate_link` extracts link properties (action_link, email_otp, hashed_token, redirect_to, verification_type) from response and returns them in a `properties` key
+  - `delete_user` sends `should_soft_delete` in body
+  - `sign_out` accepts a JWT and scope param; posts to /logout with the provided JWT
+- **Learnings for future iterations:**
+  - `Naming/AccessorMethodName` cop: `get_user_by_id(uid)` with a param does NOT trigger the cop; no rubocop:disable needed (unlike no-arg `get_*` methods)
+  - `build_create_user_body` with 8 conditional assignments triggers AbcSize (28.65 > 17) and CyclomaticComplexity (9 > 7); split into credential + metadata helpers
+  - Admin API pattern mirrors MFA API: separate class + integration module, lazy initialization via accessor
+  - Admin endpoints: `/admin/users` (CRUD), `/invite` (invite), `/admin/generate_link` (link generation), `/logout` (sign out)
 ---

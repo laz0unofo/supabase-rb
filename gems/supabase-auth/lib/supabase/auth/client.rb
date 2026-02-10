@@ -11,6 +11,8 @@ require_relative "user_methods"
 require_relative "auth_state_events"
 require_relative "mfa_api"
 require_relative "mfa_methods"
+require_relative "admin_api"
+require_relative "admin_methods"
 
 module Supabase
   module Auth
@@ -29,6 +31,7 @@ module Supabase
       include UserMethods
       include AuthStateEvents
       include MfaMethods
+      include AdminMethods
 
       EXPIRY_MARGIN_SECONDS = 90
       DEFAULT_LOCK_TIMEOUT = 10
