@@ -5,6 +5,8 @@ module Supabase
     # Internal session management helpers for the Auth client.
     # Handles session persistence, loading, refresh checks, and event emission.
     module SessionHelpers
+      EXPIRY_MARGIN_SECONDS = 90
+
       private
 
       def load_session

@@ -393,7 +393,8 @@
         "Resend tests (RS-01 through RS-03)"
       ],
       "priority": 20,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-021",

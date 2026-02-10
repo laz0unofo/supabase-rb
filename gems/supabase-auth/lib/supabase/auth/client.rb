@@ -33,7 +33,6 @@ module Supabase
       include MfaMethods
       include AdminMethods
 
-      EXPIRY_MARGIN_SECONDS = 90
       DEFAULT_LOCK_TIMEOUT = 10
 
       attr_reader :storage, :flow_type
