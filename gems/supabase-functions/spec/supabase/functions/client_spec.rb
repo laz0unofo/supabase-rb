@@ -18,8 +18,7 @@ RSpec.describe Supabase::Functions::Client do
       result = client.invoke("hello")
 
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("ok" => true)
-      expect(result[:error]).to be_nil
+      expect(result).to eq("ok" => true)
     end
 
     it "AU-02: token persists across multiple invocations" do
@@ -156,8 +155,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: '{"result":"ok"}', headers: { "content-type" => "application/json" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq("result" => "ok")
-      expect(result[:error]).to be_nil
+      expect(result).to eq("result" => "ok")
     end
 
     it "RP-02: JSON array content-type is parsed into an Array" do
@@ -165,7 +163,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: "[1,2,3]", headers: { "content-type" => "application/json" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq([1, 2, 3])
+      expect(result).to eq([1, 2, 3])
     end
 
     it "RP-03: text/plain is returned as a string" do
@@ -173,7 +171,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: "plain text response", headers: { "content-type" => "text/plain" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq("plain text response")
+      expect(result).to eq("plain text response")
     end
 
     it "RP-04: application/octet-stream returns binary string" do
@@ -182,8 +180,8 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: binary_data, headers: { "content-type" => "application/octet-stream" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq(binary_data.b)
-      expect(result[:data].encoding).to eq(Encoding::ASCII_8BIT)
+      expect(result).to eq(binary_data.b)
+      expect(result.encoding).to eq(Encoding::ASCII_8BIT)
     end
 
     it "RP-05: text/event-stream returns the raw response object" do
@@ -191,9 +189,9 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: "data: hello\n\n", headers: { "content-type" => "text/event-stream" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to respond_to(:status)
-      expect(result[:data]).to respond_to(:headers)
-      expect(result[:data]).to respond_to(:body)
+      expect(result).to respond_to(:status)
+      expect(result).to respond_to(:headers)
+      expect(result).to respond_to(:body)
     end
 
     it "RP-06: JSON with charset is still parsed" do
@@ -201,7 +199,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: '{"ok":true}', headers: { "content-type" => "application/json; charset=utf-8" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq("ok" => true)
+      expect(result).to eq("ok" => true)
     end
 
     it "RP-07: unknown content-type returns body as string" do
@@ -209,7 +207,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: "<html>page</html>", headers: { "content-type" => "text/html" })
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq("<html>page</html>")
+      expect(result).to eq("<html>page</html>")
     end
 
     it "RP-08: missing content-type returns body as string" do
@@ -217,7 +215,7 @@ RSpec.describe Supabase::Functions::Client do
         .to_return(status: 200, body: "raw", headers: {})
 
       result = client.invoke("fn")
-      expect(result[:data]).to eq("raw")
+      expect(result).to eq("raw")
     end
   end
 
@@ -225,79 +223,79 @@ RSpec.describe Supabase::Functions::Client do
   # EH: Error Handling
   # ---------------------------------------------------------------------------
   describe "error handling" do
-    it "EH-01: non-2xx response returns FunctionsHttpError" do
+    it "EH-01: non-2xx response raises FunctionsHttpError" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 500, body: "Internal Server Error", headers: {})
 
-      result = client.invoke("fn")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsHttpError)
-      expect(result[:error].message).to eq("Internal Server Error")
-      expect(result[:error].status).to eq(500)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsHttpError, "Internal Server Error") { |e|
+          expect(e.status).to eq(500)
+        }
     end
 
-    it "EH-02: 404 response returns FunctionsHttpError with status 404" do
+    it "EH-02: 404 response raises FunctionsHttpError with status 404" do
       stub_request(:post, "#{base_url}/missing")
         .to_return(status: 404, body: "Not Found", headers: {})
 
-      result = client.invoke("missing")
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsHttpError)
-      expect(result[:error].status).to eq(404)
+      expect { client.invoke("missing") }
+        .to raise_error(Supabase::Functions::FunctionsHttpError) { |e|
+          expect(e.status).to eq(404)
+        }
     end
 
-    it "EH-03: relay error (x-relay-error header) returns FunctionsRelayError" do
+    it "EH-03: relay error (x-relay-error header) raises FunctionsRelayError" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 500, body: "relay failure", headers: { "x-relay-error" => "true" })
 
-      result = client.invoke("fn")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsRelayError)
-      expect(result[:error].message).to eq("relay failure")
-      expect(result[:error].status).to eq(500)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsRelayError, "relay failure") { |e|
+          expect(e.status).to eq(500)
+        }
     end
 
     it "EH-04: relay error takes precedence over HTTP error for non-2xx with relay header" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 502, body: "bad gateway relay", headers: { "x-relay-error" => "true" })
 
-      result = client.invoke("fn")
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsRelayError)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsRelayError)
     end
 
-    it "EH-05: network error returns FunctionsFetchError" do
+    it "EH-05: network error raises FunctionsFetchError" do
       stub_request(:post, "#{base_url}/fn")
         .to_raise(Faraday::ConnectionFailed.new("Connection refused"))
 
-      result = client.invoke("fn")
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsFetchError)
-      expect(result[:error].message).to include("Connection refused")
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsFetchError, /Connection refused/)
     end
 
-    it "EH-06: timeout error returns FunctionsFetchError" do
+    it "EH-06: timeout error raises FunctionsFetchError" do
       stub_request(:post, "#{base_url}/fn")
         .to_raise(Faraday::TimeoutError.new("execution expired"))
 
-      result = client.invoke("fn")
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsFetchError)
-      expect(result[:error].message).to include("execution expired")
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsFetchError, /execution expired/)
     end
 
     it "EH-07: FunctionsHttpError has context pointing to the response" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 403, body: "Forbidden", headers: {})
 
-      result = client.invoke("fn")
-      expect(result[:error].context).to respond_to(:status)
-      expect(result[:error].context.status).to eq(403)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsHttpError) { |e|
+          expect(e.context).to respond_to(:status)
+          expect(e.context.status).to eq(403)
+        }
     end
 
     it "EH-08: FunctionsFetchError has context pointing to the original exception" do
       stub_request(:post, "#{base_url}/fn")
         .to_raise(Faraday::ConnectionFailed.new("oops"))
 
-      result = client.invoke("fn")
-      expect(result[:error].context).to be_a(Faraday::ConnectionFailed)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsFetchError) { |e|
+          expect(e.context).to be_a(Faraday::ConnectionFailed)
+        }
     end
   end
 
@@ -365,24 +363,22 @@ RSpec.describe Supabase::Functions::Client do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 200, body: "", headers: {})
 
-      result = client.invoke("fn")
-      expect(result[:error]).to be_nil
+      expect { client.invoke("fn") }.not_to raise_error
     end
 
     it "TC-02: per-request timeout is passed to the connection" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 200, body: "", headers: {})
 
-      result = client.invoke("fn", timeout: 5)
-      expect(result[:error]).to be_nil
+      expect { client.invoke("fn", timeout: 5) }.not_to raise_error
     end
 
-    it "TC-03: timeout expiry returns FunctionsFetchError" do
+    it "TC-03: timeout expiry raises FunctionsFetchError" do
       stub_request(:post, "#{base_url}/fn")
         .to_raise(Faraday::TimeoutError.new("execution expired"))
 
-      result = client.invoke("fn", timeout: 1)
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsFetchError)
+      expect { client.invoke("fn", timeout: 1) }
+        .to raise_error(Supabase::Functions::FunctionsFetchError)
     end
 
     it "TC-04: custom fetch proc receives timeout" do
@@ -484,7 +480,7 @@ RSpec.describe Supabase::Functions::Client do
 
       result = client.invoke("fn", method: :put, body: { name: "test" })
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("updated" => true)
+      expect(result).to eq("updated" => true)
     end
 
     it "HM-04: supports PATCH method" do
@@ -508,24 +504,36 @@ RSpec.describe Supabase::Functions::Client do
   # Error hierarchy
   # ---------------------------------------------------------------------------
   describe "error hierarchy" do
-    it "FunctionsError inherits from Supabase::Error" do
-      expect(Supabase::Functions::FunctionsError.superclass).to eq(Supabase::Error)
+    it "FunctionsError is a Module (mixin)" do
+      expect(Supabase::Functions::FunctionsError).to be_a(Module)
     end
 
-    it "FunctionsFetchError inherits from FunctionsError" do
-      expect(Supabase::Functions::FunctionsFetchError.superclass).to eq(Supabase::Functions::FunctionsError)
+    it "FunctionsBaseError inherits from Supabase::Error and includes FunctionsError" do
+      expect(Supabase::Functions::FunctionsBaseError.superclass).to eq(Supabase::Error)
+      err = Supabase::Functions::FunctionsBaseError.new("msg")
+      expect(err).to be_a(Supabase::Functions::FunctionsError)
     end
 
-    it "FunctionsRelayError inherits from FunctionsError" do
-      expect(Supabase::Functions::FunctionsRelayError.superclass).to eq(Supabase::Functions::FunctionsError)
+    it "FunctionsFetchError inherits from Supabase::NetworkError and includes FunctionsError" do
+      expect(Supabase::Functions::FunctionsFetchError.superclass).to eq(Supabase::NetworkError)
+      err = Supabase::Functions::FunctionsFetchError.new("msg")
+      expect(err).to be_a(Supabase::Functions::FunctionsError)
     end
 
-    it "FunctionsHttpError inherits from FunctionsError" do
-      expect(Supabase::Functions::FunctionsHttpError.superclass).to eq(Supabase::Functions::FunctionsError)
+    it "FunctionsRelayError inherits from Supabase::ApiError and includes FunctionsError" do
+      expect(Supabase::Functions::FunctionsRelayError.superclass).to eq(Supabase::ApiError)
+      err = Supabase::Functions::FunctionsRelayError.new("msg")
+      expect(err).to be_a(Supabase::Functions::FunctionsError)
     end
 
-    it "FunctionsError stores context" do
-      err = Supabase::Functions::FunctionsError.new("msg", context: :ctx)
+    it "FunctionsHttpError inherits from Supabase::ApiError and includes FunctionsError" do
+      expect(Supabase::Functions::FunctionsHttpError.superclass).to eq(Supabase::ApiError)
+      err = Supabase::Functions::FunctionsHttpError.new("msg")
+      expect(err).to be_a(Supabase::Functions::FunctionsError)
+    end
+
+    it "FunctionsBaseError stores context" do
+      err = Supabase::Functions::FunctionsBaseError.new("msg", context: :ctx)
       expect(err.context).to eq(:ctx)
       expect(err.message).to eq("msg")
     end
@@ -586,11 +594,9 @@ RSpec.describe Supabase::Functions::Client do
   # Invalid method
   # ---------------------------------------------------------------------------
   describe "invalid HTTP method" do
-    it "returns FunctionsFetchError for unsupported method" do
-      result = client.invoke("fn", method: :options)
-      expect(result[:data]).to be_nil
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsFetchError)
-      expect(result[:error].message).to include("Invalid HTTP method")
+    it "raises FunctionsFetchError for unsupported method" do
+      expect { client.invoke("fn", method: :options) }
+        .to raise_error(Supabase::Functions::FunctionsFetchError, /Invalid HTTP method/)
     end
   end
 
@@ -619,8 +625,7 @@ RSpec.describe Supabase::Functions::Client do
       result = client.invoke("process-data", body: { input: "data" })
 
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("output" => "result")
-      expect(result[:error]).to be_nil
+      expect(result).to eq("output" => "result")
     end
 
     it "regional invocation with custom headers" do
@@ -636,7 +641,7 @@ RSpec.describe Supabase::Functions::Client do
                                                  headers: { "X-Request-Id" => "abc-123" })
 
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("done" => true)
+      expect(result).to eq("done" => true)
     end
 
     it "GET request with no body" do
@@ -647,25 +652,25 @@ RSpec.describe Supabase::Functions::Client do
       result = client.invoke("health", method: :get)
 
       expect(stub).to have_been_requested
-      expect(result[:data]).to eq("status" => "healthy")
+      expect(result).to eq("status" => "healthy")
     end
 
-    it "relay error on 2xx status still returns FunctionsRelayError" do
+    it "relay error on 2xx status still raises FunctionsRelayError" do
       stub_request(:post, "#{base_url}/fn")
         .to_return(status: 200, body: "edge function boot error", headers: { "x-relay-error" => "true" })
 
-      result = client.invoke("fn")
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsRelayError)
-      expect(result[:error].status).to eq(200)
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsRelayError) { |e|
+          expect(e.status).to eq(200)
+        }
     end
 
-    it "IOError during request returns FunctionsFetchError" do
+    it "IOError during request raises FunctionsFetchError" do
       stub_request(:post, "#{base_url}/fn")
         .to_raise(IOError.new("stream closed"))
 
-      result = client.invoke("fn")
-      expect(result[:error]).to be_a(Supabase::Functions::FunctionsFetchError)
-      expect(result[:error].message).to include("stream closed")
+      expect { client.invoke("fn") }
+        .to raise_error(Supabase::Functions::FunctionsFetchError, /stream closed/)
     end
   end
 end

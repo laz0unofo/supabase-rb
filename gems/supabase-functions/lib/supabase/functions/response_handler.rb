@@ -5,22 +5,23 @@ require "json"
 module Supabase
   module Functions
     # Handles processing of HTTP responses from Edge Functions.
+    # Raises appropriate error classes on failures.
     module ResponseHandler
       private
 
       def process_response(response)
-        return relay_error_result(response) if response.headers["x-relay-error"] == "true"
-        return http_error_result(response) unless (200..299).cover?(response.status)
+        raise_relay_error(response) if response.headers["x-relay-error"] == "true"
+        raise_http_error(response) unless (200..299).cover?(response.status)
 
-        { data: parse_response(response), error: nil }
+        parse_response(response)
       end
 
-      def relay_error_result(response)
-        { data: nil, error: FunctionsRelayError.new(response.body, status: response.status, context: response) }
+      def raise_relay_error(response)
+        raise FunctionsRelayError.new(response.body, status: response.status, context: response)
       end
 
-      def http_error_result(response)
-        { data: nil, error: FunctionsHttpError.new(response.body, status: response.status, context: response) }
+      def raise_http_error(response)
+        raise FunctionsHttpError.new(response.body, status: response.status, context: response)
       end
 
       def parse_response(response)

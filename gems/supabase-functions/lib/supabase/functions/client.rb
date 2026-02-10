@@ -43,23 +43,26 @@ module Supabase
       # @option options [Symbol] :method HTTP method (:post, :get, :put, :patch, :delete)
       # @option options [Symbol] :region Region override for this request
       # @option options [Integer] :timeout Request timeout in seconds
-      # @return [Hash] { data:, error: } result hash
+      # @return [Object] Parsed response data
+      # @raise [FunctionsHttpError] on non-2xx HTTP responses
+      # @raise [FunctionsRelayError] when x-relay-error header is present
+      # @raise [FunctionsFetchError] on network failures or invalid method
       def invoke(function_name, **options)
-        method = (options[:method] || :post).to_sym
-        return invalid_method_error(method) unless VALID_METHODS.include?(method)
-
-        effective_region = options[:region] || @region
-        request = build_request(function_name, effective_region, options)
+        method = validate_method(options[:method])
+        request = build_request(function_name, options[:region] || @region, options)
         response = perform_request(method, request[:url], request[:body], request[:headers], options[:timeout])
         process_response(response)
       rescue Faraday::Error, IOError => e
-        { data: nil, error: FunctionsFetchError.new(e.message, context: e) }
+        raise FunctionsFetchError.new(e.message, context: e)
       end
 
       private
 
-      def invalid_method_error(method)
-        { data: nil, error: FunctionsFetchError.new("Invalid HTTP method: #{method}") }
+      def validate_method(method)
+        method = (method || :post).to_sym
+        raise FunctionsFetchError, "Invalid HTTP method: #{method}" unless VALID_METHODS.include?(method)
+
+        method
       end
 
       def build_request(function_name, region, options)
