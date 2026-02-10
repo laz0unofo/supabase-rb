@@ -361,7 +361,8 @@
         "Sign-up, OTP, OAuth, SSO methods include code_challenge and code_challenge_method when flow_type: :pkce"
       ],
       "priority": 19,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-020",

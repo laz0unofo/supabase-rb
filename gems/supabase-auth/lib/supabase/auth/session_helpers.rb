@@ -51,7 +51,7 @@ module Supabase
 
       def emit_event(event, session)
         @listeners.each do |listener|
-          listener.call(event, session)
+          listener[:callback].call(event, session)
         rescue StandardError => e
           log_debug("Listener error: #{e.message}")
         end

@@ -482,3 +482,19 @@
   - Admin API pattern mirrors MFA API: separate class + integration module, lazy initialization via accessor
   - Admin endpoints: `/admin/users` (CRUD), `/invite` (invite), `/admin/generate_link` (link generation), `/logout` (sign out)
 ---
+
+## 2026-02-10 - US-019
+- What was implemented: PKCE flow completion - added password recovery PKCE support and resend PKCE support
+- Files changed:
+  - `gems/supabase-auth/lib/supabase/auth/user_methods.rb` (updated: `reset_password_for_email` now includes PKCE code_challenge and stores verifier with `/PASSWORD_RECOVERY` suffix when flow_type is :pkce; `resend` now includes PKCE code_challenge when flow_type is :pkce; added `append_pkce_recovery_params` private helper)
+  - `.chief/prds/main/prd.json` (marked US-019 as passes: true)
+- **Implementation details:**
+  - Most PKCE infrastructure was already in place from US-014 (PKCE module, `append_pkce_params`, `exchange_code_for_session`, OAuth/OTP/SSO/sign_up PKCE integration)
+  - Added `append_pkce_recovery_params` to UserMethods: generates verifier, stores it with `/PASSWORD_RECOVERY` suffix, adds code_challenge + code_challenge_method to request body
+  - The `/PASSWORD_RECOVERY` suffix on the stored verifier enables `exchange_code_for_session` (in VerifyMethods) to detect password recovery flow and emit `:password_recovery` event instead of `:signed_in`
+  - Added PKCE support to `resend` method using existing `append_pkce_params` from SignUpMethods (available since all modules are included in Client)
+- **Learnings for future iterations:**
+  - PKCE recovery uses a different helper (`append_pkce_recovery_params`) than regular PKCE (`append_pkce_params`) because recovery appends `/PASSWORD_RECOVERY` suffix to the stored verifier
+  - Modules included in the same class can call each other's private methods (e.g., UserMethods calls `append_pkce_params` from SignUpMethods)
+  - When assessing story completeness, check ALL methods that send auth requests to see if they need PKCE support, not just the ones mentioned in the story title
+---

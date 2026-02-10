@@ -8,6 +8,7 @@ require_relative "auth/memory_storage"
 require_relative "auth/session"
 require_relative "auth/lock"
 require_relative "auth/error_classifier"
+require_relative "auth/subscription"
 require_relative "auth/client"
 
 module Supabase
