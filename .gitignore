@@ -1,0 +1,20 @@
+/.bundle/
+/tmp/
+/pkg/
+*.gem
+*.lock
+!Gemfile.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Coverage
+/coverage/
+
+# Documentation
+/doc/
+/.yardoc/
