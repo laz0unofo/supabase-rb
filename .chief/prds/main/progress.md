@@ -42,6 +42,10 @@
 - StorageFileApi has independent HTTP helpers (not shared with Client); each class handles its own Faraday connections
 - Storage upload headers use lowercase keys: `cache-control`, `content-type`, `x-upsert`, `x-metadata`
 - Storage move/copy use camelCase JSON body keys: `bucketId`, `sourceKey`, `destinationBucket`, `destinationKey`
+- Storage URL operations: signed URLs from `/object/sign/`, public URLs from `/object/public/`, image transforms from `/render/image/public/` or `/render/image/authenticated/`
+- Storage list endpoint: POST to `/object/list/{bucket}` with body `{ prefix:, limit:, offset:, sortBy:, search: }`
+- `get_public_url` is pure URL construction (no HTTP); all other URL methods make HTTP calls
+- `Style/IfUnlessModifier`: use modifier form for single-line if bodies (e.g., `result[:key] = value if condition`)
 
 ---
 
@@ -268,4 +272,31 @@
   - `move` and `copy` use camelCase keys in JSON body (bucketId, sourceKey, etc.) to match Supabase API
   - `exists?` uses HEAD method and checks status range; returns `{ data: true/false, error: nil }`
   - `download` returns raw binary body (not JSON-parsed) in `{ data: body, error: nil }`
+---
+
+## 2026-02-10 - US-011
+- What was implemented: Storage Client URL operations and file listing (create_signed_url, create_signed_urls, create_signed_upload_url, upload_to_signed_url, get_public_url, list) with image transform support
+- Files changed:
+  - `gems/supabase-storage/lib/supabase/storage/url_operations.rb` (new: UrlOperations module with all URL and listing methods)
+  - `gems/supabase-storage/lib/supabase/storage/storage_file_api.rb` (updated: includes UrlOperations module)
+  - `.chief/prds/main/prd.json` (marked US-011 as passes: true)
+- **Implementation details:**
+  - `create_signed_url` sends POST to `/object/sign/{bucket}/{path}` with expiresIn and optional transform; returns full signed URL
+  - `create_signed_urls` sends POST to `/object/sign` (batch) with paths prefixed by bucket_id
+  - `create_signed_upload_url` sends POST to `/object/upload/sign/{bucket}/{path}` with optional x-upsert header; returns signed_url + token + path
+  - `upload_to_signed_url` sends PUT to `/object/upload/sign/{bucket}/{path}?token=` with upload headers
+  - `get_public_url` is synchronous (no HTTP call); uses `/render/image/public/` for transforms, `/object/public/` otherwise
+  - `list` sends POST to `/object/list/{bucket}` with prefix, limit, offset, sortBy, search body
+  - Image transform params (width, height, resize, quality, format) appended as query params
+  - Download param: `download=` (boolean true) or `download={filename}` (string); URI-encoded
+  - Signed URL download param uses separator logic (? vs &) since signed URLs already have query params
+- **Learnings for future iterations:**
+  - UrlOperations module follows same extraction pattern as FileOperations, BucketApi, Filters, etc.
+  - Module was initially 104 lines (over 100 limit); compacted by inlining small helpers and removing intermediate variables
+  - `Style/IfUnlessModifier` cop: single-line if bodies should use modifier form (`result[:key] = value if condition`)
+  - Signed URL API returns `signedURL` (camelCase) in response JSON
+  - Batch signed URLs endpoint is `/object/sign` (no bucket/path in URL); paths are passed in body with bucket prefix
+  - Signed upload URL response has `url` field as relative path; must be prepended with base URL
+  - `get_public_url` never makes HTTP calls - it's pure URL construction
+  - `list` uses `sortBy` (camelCase) in request body to match Supabase API convention
 ---

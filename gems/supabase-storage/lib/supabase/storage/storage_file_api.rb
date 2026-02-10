@@ -3,6 +3,7 @@
 require "faraday"
 require "json"
 require_relative "file_operations"
+require_relative "url_operations"
 
 module Supabase
   module Storage
@@ -10,6 +11,7 @@ module Supabase
     # Provides upload, download, move, copy, delete, list, and URL generation.
     class StorageFileApi
       include FileOperations
+      include UrlOperations
 
       def initialize(url:, bucket_id:, headers: {}, fetch: nil)
         @url = url.to_s.chomp("/")

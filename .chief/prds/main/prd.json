@@ -213,7 +213,8 @@
         "All URLs are properly URI-encoded"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-012",
