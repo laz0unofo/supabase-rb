@@ -78,6 +78,9 @@
 - Phoenix protocol: topic=`"phoenix"` for heartbeats, `"realtime:{name}"` for channels; events: `phx_join`, `phx_leave`, `phx_reply`, `phx_close`, `phx_error`
 - Realtime modules: Heartbeat, Reconnect, ChannelMessageHandler extracted from Client/Channel to keep under ClassLength 100
 - Realtime WebSocket testing: use `instance_double`/`allow+receive` mocks; don't require actual WebSocket connections
+- Top-level `supabase` gem: Client split into modules (UrlBuilder, SubClients, Delegation, AuthTokenManager) + main Client class; uses `require "supabase/{name}"` for sub-gems
+- Realtime client takes positional `url` arg; other clients use `url:` keyword arg
+- `Hash#except` (Ruby 3.0+) for passing options while excluding specific keys
 
 ---
 
@@ -622,4 +625,37 @@
   - `Style/BlockDelimiters`: use `do...end` not `{...}` for multi-line blocks (even in `.with` chaining)
   - Existing client_spec.rb (58 tests) and channel_spec.rb (19 tests) from US-021/US-022 already covered connection, heartbeat, channel lifecycle, send buffer, auth token, and message routing; US-023 added broadcast, presence, postgres_changes, and push/ref tests
   - WebMock header matching is case-insensitive; `"Apikey"` matches `"apikey"` header
+---
+
+## 2026-02-10 - US-024
+- What was implemented: Top-level Supabase::Client orchestrator that composes all 5 service clients (Auth, PostgREST, Realtime, Storage, Functions) with shared authentication, URL derivation, validation, delegation, and auth event propagation
+- Files changed:
+  - `gems/supabase/lib/supabase.rb` (updated: added requires for all new modules + sub-gem requires + `Supabase.create_client` alias)
+  - `gems/supabase/lib/supabase/errors.rb` (new: SupabaseError base class, AuthNotAvailableError for third-party auth mode)
+  - `gems/supabase/lib/supabase/url_builder.rb` (new: UrlBuilder module with derive_auth_url, derive_rest_url, derive_realtime_url, derive_storage_url, derive_functions_url, derive_storage_key)
+  - `gems/supabase/lib/supabase/sub_clients.rb` (new: SubClients module with auth/storage/functions accessors + init helpers for all 5 sub-clients)
+  - `gems/supabase/lib/supabase/delegation.rb` (new: Delegation module with from/schema/rpc -> PostgREST, channel/get_channels/remove_channel/remove_all_channels -> Realtime)
+  - `gems/supabase/lib/supabase/auth_token_manager.rb` (new: AuthTokenManager module with token resolution, auth event propagation, third-party auth setup)
+  - `gems/supabase/lib/supabase/client.rb` (new: Client class with constructor, URL/key validation, URL derivation, header configuration, sub-client initialization)
+  - `.chief/prds/main/prd.json` (marked US-024 as passes: true)
+- **Implementation details:**
+  - Client split into 5 modules + main class to stay under ClassLength 100: UrlBuilder, SubClients, Delegation, AuthTokenManager, Client
+  - URL validation: rejects nil/empty, non-HTTP(S), and malformed URIs
+  - API key validation: rejects nil/empty
+  - URL derivation: /auth/v1, /rest/v1, wss://.../realtime/v1, /storage/v1, /functions/v1
+  - Storage key: `sb-{hostname_first_part}-auth-token`
+  - Headers: apikey, Authorization: Bearer {key}, X-Client-Info: supabase-rb/{version}
+  - Session-based mode: full Auth client + auth event listener for Realtime token sync
+  - Third-party auth mode (access_token callback): auth accessor raises AuthNotAvailableError; Realtime gets token via set_auth
+  - Auth event propagation: signed_in/token_refreshed -> realtime.set_auth(token) with dedup; signed_out -> realtime.set_auth(nil)
+  - functions accessor creates new FunctionsClient on each access (latest headers with current token)
+  - Deep config merge: user options > computed defaults > static defaults
+  - `Supabase.create_client(url, key, **opts)` module-level factory alias
+- **Learnings for future iterations:**
+  - Top-level gem requires all 5 sub-gems via `require "supabase/{name}"` (not `require_relative`)
+  - Store `@base_url` for reuse in storage key derivation (don't derive from sub-URLs)
+  - `Style/IfUnlessModifier` conflicts with `Layout/LineLength` when the modifier form exceeds 120 chars; use multi-line `if` block instead
+  - Realtime client constructor takes positional `url` arg (not keyword), unlike other clients which use `url:` keyword
+  - Auth client `on_auth_state_change` fires `:initial_session` asynchronously; token propagation must handle this
+  - `Hash#except` (Ruby 3.0+) is useful for passing options while excluding specific keys (e.g., `:params` from realtime_opts)
 ---

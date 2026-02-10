@@ -488,7 +488,8 @@
         "Deep-merge for db, auth, realtime, global sections"
       ],
       "priority": 24,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-025",
