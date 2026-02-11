@@ -73,7 +73,8 @@
         "Groups minor/patch updates to reduce PR noise"
       ],
       "priority": 5,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     }
   ]
 }

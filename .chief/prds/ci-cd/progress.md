@@ -6,6 +6,8 @@
 - Ruby versions to test: 3.1, 3.2, 3.3, 3.4 (target version in .rubocop.yml is 3.1)
 - All 6 gemspecs are at `gems/<name>/<name>.gemspec` - iterate with `gems/*/*.gemspec`
 - `softprops/action-gh-release@v2` with `generate_release_notes: true` for auto changelog
+- Dependabot: use `groups` with `update-types: [minor, patch]` to reduce PR noise
+- Dependabot: each gem directory with a `Gemfile` needs its own `bundler` ecosystem entry
 
 ---
 
@@ -50,5 +52,17 @@
   - `gem build` needs to run from the gem's directory (use `cd` subshell) since gemspecs use `require_relative` for version files
   - Release workflows don't need `bundler-cache: true` since they only build gems, not install dev dependencies
   - `permissions: contents: write` is required for creating releases and uploading assets
+
+---
+
+## 2026-02-11 - US-005
+- **What was implemented**: Dependabot configuration for automated dependency update PRs
+- **Files changed**: `.github/dependabot.yml` (new file)
+- **Details**: Created Dependabot configuration that monitors Bundler dependencies for the root Gemfile and all 6 gem directories (`gems/supabase`, `gems/supabase-auth`, `gems/supabase-functions`, `gems/supabase-postgrest`, `gems/supabase-realtime`, `gems/supabase-storage`). Also monitors GitHub Actions versions. All entries use a weekly schedule and group minor/patch updates together to reduce PR noise.
+- **Learnings for future iterations:**
+  - Dependabot requires a separate `package-ecosystem: bundler` entry for each directory containing a `Gemfile` -- there's no glob/wildcard support
+  - The `groups` feature with `update-types: [minor, patch]` consolidates non-breaking updates into single PRs per directory
+  - `github-actions` ecosystem monitors workflow files in `.github/workflows/` for action version updates
+  - Dependabot config is pure YAML with no way to lint/test it locally beyond YAML validation
 
 ---

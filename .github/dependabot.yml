@@ -1,0 +1,90 @@
+version: 2
+
+updates:
+  # Root Gemfile
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase
+  - package-ecosystem: bundler
+    directory: /gems/supabase
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase-auth
+  - package-ecosystem: bundler
+    directory: /gems/supabase-auth
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase-functions
+  - package-ecosystem: bundler
+    directory: /gems/supabase-functions
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase-postgrest
+  - package-ecosystem: bundler
+    directory: /gems/supabase-postgrest
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase-realtime
+  - package-ecosystem: bundler
+    directory: /gems/supabase-realtime
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Gem: supabase-storage
+  - package-ecosystem: bundler
+    directory: /gems/supabase-storage
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
