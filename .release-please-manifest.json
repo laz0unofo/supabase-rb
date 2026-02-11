@@ -4,5 +4,6 @@
   "gems/supabase-functions": "0.1.0",
   "gems/supabase-postgrest": "0.1.0",
   "gems/supabase-realtime": "0.1.0",
-  "gems/supabase-storage": "0.1.0"
+  "gems/supabase-storage": "0.1.0",
+  ".": "0.0.0"
 }
