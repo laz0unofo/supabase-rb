@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "A Ruby client library for Supabase PostgREST with a chainable query builder for CRUD operations, filtering, and transforms."
   spec.homepage = "https://github.com/grdsdev/supabase-rb"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/grdsdev/supabase-rb/tree/main/gems/supabase-postgrest"

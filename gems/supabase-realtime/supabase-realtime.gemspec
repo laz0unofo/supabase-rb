@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "A Ruby client library for Supabase Realtime providing WebSocket-based broadcast, presence, and PostgreSQL change data capture."
   spec.homepage = "https://github.com/grdsdev/supabase-rb"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/grdsdev/supabase-rb/tree/main/gems/supabase-realtime"

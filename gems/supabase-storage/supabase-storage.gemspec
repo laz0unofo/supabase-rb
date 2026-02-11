@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "A Ruby client library for Supabase Storage providing bucket management, file operations, signed URLs, and image transforms."
   spec.homepage = "https://github.com/grdsdev/supabase-rb"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/grdsdev/supabase-rb/tree/main/gems/supabase-storage"
