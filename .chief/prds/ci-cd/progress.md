@@ -4,6 +4,8 @@
 - Rubocop does not scan `.github/` directory by default (only Ruby files)
 - Use `ruby/setup-ruby@v1` with `bundler-cache: true` for efficient CI setup
 - Ruby versions to test: 3.1, 3.2, 3.3, 3.4 (target version in .rubocop.yml is 3.1)
+- All 6 gemspecs are at `gems/<name>/<name>.gemspec` - iterate with `gems/*/*.gemspec`
+- `softprops/action-gh-release@v2` with `generate_release_notes: true` for auto changelog
 
 ---
 
@@ -36,5 +38,17 @@
   - Lint jobs should use a single Ruby version to avoid redundant runs
   - Jobs in GitHub Actions run in parallel by default unless `needs:` is specified
   - Rubocop only scans Ruby files, not YAML - so the workflow file itself won't be linted
+
+---
+
+## 2026-02-11 - US-004
+- **What was implemented**: Release workflow that builds all gem packages and creates a GitHub release on version tag push
+- **Files changed**: `.github/workflows/release.yml` (new file)
+- **Details**: Created a release workflow triggered by `v*` tag pushes. It builds all 6 gems by iterating `gems/*/*.gemspec` with `gem build`, collects `.gem` files into `pkg/`, then creates a GitHub release using `softprops/action-gh-release@v2` with the tag name as the release title, auto-generated release notes, and all `.gem` files attached as assets. Uses `permissions: contents: write` to allow release creation.
+- **Learnings for future iterations:**
+  - `softprops/action-gh-release@v2` is the standard action for creating GitHub releases - supports `generate_release_notes: true` for auto changelog
+  - `gem build` needs to run from the gem's directory (use `cd` subshell) since gemspecs use `require_relative` for version files
+  - Release workflows don't need `bundler-cache: true` since they only build gems, not install dev dependencies
+  - `permissions: contents: write` is required for creating releases and uploading assets
 
 ---

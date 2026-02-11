@@ -58,7 +58,8 @@
         "Includes auto-generated changelog in the release body"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-005",

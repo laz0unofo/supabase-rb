@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build Gems & Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Build all gems
+        run: |
+          mkdir -p pkg
+          for gemspec in gems/*//*.gemspec; do
+            gem_dir=$(dirname "$gemspec")
+            echo "Building $gemspec..."
+            (cd "$gem_dir" && gem build "$(basename "$gemspec")" && mv *.gem "$GITHUB_WORKSPACE/pkg/")
+          done
+          echo "Built gems:"
+          ls -la pkg/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: pkg/*.gem
