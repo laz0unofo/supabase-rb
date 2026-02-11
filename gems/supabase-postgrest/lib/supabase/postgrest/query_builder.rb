@@ -15,9 +15,9 @@ module Supabase
       # @param url [String] Base PostgREST URL (e.g., "http://localhost:3000/rest/v1")
       # @param relation [String] Table or view name
       # @param options [Hash] Additional options (:headers, :schema, :fetch, :timeout)
-      def initialize(url:, relation:, **options)
+      def initialize(url:, relation:, **)
         @relation = relation
-        super(url: "#{url}/#{relation}", **options)
+        super(url: "#{url}/#{relation}", **)
       end
     end
   end

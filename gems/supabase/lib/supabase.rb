@@ -15,7 +15,7 @@ require "supabase/storage"
 require "supabase/functions"
 
 module Supabase
-  def self.create_client(url, key, **options)
-    Client.new(url, key, **options)
+  def self.create_client(url, key, **)
+    Client.new(url, key, **)
   end
 end

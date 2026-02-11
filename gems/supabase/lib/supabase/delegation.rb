@@ -27,8 +27,8 @@ module Supabase
     # @param options [Hash] additional options passed to the RPC call (e.g., args, count)
     # @return [Supabase::PostgREST::Response] the RPC response
     # @raise [Supabase::PostgREST::PostgrestError] on failure
-    def rpc(function_name, **options)
-      @postgrest_client.rpc(function_name, **options)
+    def rpc(function_name, **)
+      @postgrest_client.rpc(function_name, **)
     end
 
     # Creates or retrieves a Realtime channel for subscribing to database changes.

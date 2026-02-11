@@ -93,8 +93,8 @@ module Supabase
       # @param wal [Boolean] Include WAL usage
       # @param format [Symbol] Output format (:text or :json)
       # @return [self]
-      def explain(**options)
-        build_explain_header(**options)
+      def explain(**)
+        build_explain_header(**)
         self
       end
 
@@ -129,8 +129,8 @@ module Supabase
         end
       end
 
-      def build_explain_header(**options)
-        parts = collect_explain_parts(**options)
+      def build_explain_header(**)
+        parts = collect_explain_parts(**)
         header_value = "for=\"explain\""
         header_value += "|#{parts.join("|")}" unless parts.empty?
         existing = @headers["Accept"]
