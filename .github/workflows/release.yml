@@ -2,17 +2,37 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  release:
-    name: Build Gems & Create Release
+  release-please:
+    name: Release Please
     runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      supabase--release_created: ${{ steps.release.outputs['gems/supabase--release_created'] }}
+      supabase-auth--release_created: ${{ steps.release.outputs['gems/supabase-auth--release_created'] }}
+      supabase-functions--release_created: ${{ steps.release.outputs['gems/supabase-functions--release_created'] }}
+      supabase-postgrest--release_created: ${{ steps.release.outputs['gems/supabase-postgrest--release_created'] }}
+      supabase-realtime--release_created: ${{ steps.release.outputs['gems/supabase-realtime--release_created'] }}
+      supabase-storage--release_created: ${{ steps.release.outputs['gems/supabase-storage--release_created'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
+  publish:
+    name: Publish Gems
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -21,20 +41,50 @@ jobs:
         with:
           ruby-version: "3.4"
 
-      - name: Build all gems
+      - name: Configure RubyGems credentials
         run: |
-          mkdir -p pkg
-          for gemspec in gems/*//*.gemspec; do
-            gem_dir=$(dirname "$gemspec")
-            echo "Building $gemspec..."
-            (cd "$gem_dir" && gem build "$(basename "$gemspec")" && mv *.gem "$GITHUB_WORKSPACE/pkg/")
-          done
-          echo "Built gems:"
-          ls -la pkg/
+          mkdir -p ~/.gem
+          echo -e "---\n:rubygems_api_key: ${{ secrets.RUBYGEMS_API_KEY }}" > ~/.gem/credentials
+          chmod 0600 ~/.gem/credentials
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          generate_release_notes: true
-          files: pkg/*.gem
+      - name: Publish supabase
+        if: needs.release-please.outputs.supabase--release_created == 'true'
+        run: |
+          cd gems/supabase
+          gem build supabase.gemspec
+          gem push supabase-*.gem
+
+      - name: Publish supabase-auth
+        if: needs.release-please.outputs.supabase-auth--release_created == 'true'
+        run: |
+          cd gems/supabase-auth
+          gem build supabase-auth.gemspec
+          gem push supabase-auth-*.gem
+
+      - name: Publish supabase-functions
+        if: needs.release-please.outputs.supabase-functions--release_created == 'true'
+        run: |
+          cd gems/supabase-functions
+          gem build supabase-functions.gemspec
+          gem push supabase-functions-*.gem
+
+      - name: Publish supabase-postgrest
+        if: needs.release-please.outputs.supabase-postgrest--release_created == 'true'
+        run: |
+          cd gems/supabase-postgrest
+          gem build supabase-postgrest.gemspec
+          gem push supabase-postgrest-*.gem
+
+      - name: Publish supabase-realtime
+        if: needs.release-please.outputs.supabase-realtime--release_created == 'true'
+        run: |
+          cd gems/supabase-realtime
+          gem build supabase-realtime.gemspec
+          gem push supabase-realtime-*.gem
+
+      - name: Publish supabase-storage
+        if: needs.release-please.outputs.supabase-storage--release_created == 'true'
+        run: |
+          cd gems/supabase-storage
+          gem build supabase-storage.gemspec
+          gem push supabase-storage-*.gem

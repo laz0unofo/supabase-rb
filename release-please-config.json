@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-component-in-tag": true,
+  "packages": {
+    "gems/supabase": {
+      "release-type": "ruby",
+      "package-name": "supabase",
+      "component": "supabase"
+    },
+    "gems/supabase-auth": {
+      "release-type": "ruby",
+      "package-name": "supabase-auth",
+      "component": "supabase-auth"
+    },
+    "gems/supabase-functions": {
+      "release-type": "ruby",
+      "package-name": "supabase-functions",
+      "component": "supabase-functions"
+    },
+    "gems/supabase-postgrest": {
+      "release-type": "ruby",
+      "package-name": "supabase-postgrest",
+      "component": "supabase-postgrest"
+    },
+    "gems/supabase-realtime": {
+      "release-type": "ruby",
+      "package-name": "supabase-realtime",
+      "component": "supabase-realtime"
+    },
+    "gems/supabase-storage": {
+      "release-type": "ruby",
+      "package-name": "supabase-storage",
+      "component": "supabase-storage"
+    }
+  }
+}
