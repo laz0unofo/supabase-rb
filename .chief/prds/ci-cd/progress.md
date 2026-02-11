@@ -27,3 +27,14 @@
   - Always check what's already in place before implementing
 
 ---
+
+## 2026-02-11 - US-003
+- **What was implemented**: Rubocop linting job in CI workflow
+- **Files changed**: `.github/workflows/ci.yml` (added lint job)
+- **Details**: Added a `lint` job that runs `bundle exec rubocop` on Ruby 3.4 (latest stable). The job runs in parallel with the test matrix jobs (no `needs:` dependency). Uses the same `actions/checkout@v4` and `ruby/setup-ruby@v1` with bundler caching pattern.
+- **Learnings for future iterations:**
+  - Lint jobs should use a single Ruby version to avoid redundant runs
+  - Jobs in GitHub Actions run in parallel by default unless `needs:` is specified
+  - Rubocop only scans Ruby files, not YAML - so the workflow file itself won't be linted
+
+---

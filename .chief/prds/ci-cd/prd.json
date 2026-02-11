@@ -42,8 +42,8 @@
         "Lint job runs on a single Ruby version (latest stable) to avoid redundancy"
       ],
       "priority": 3,
-      "passes": false,
-      "inProgress": true
+      "passes": true,
+      "inProgress": false
     },
     {
       "id": "US-004",
