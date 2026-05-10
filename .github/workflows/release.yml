@@ -18,7 +18,7 @@ jobs:
       supabase-realtime--release_created: ${{ steps.release.outputs['gems/supabase-realtime--release_created'] }}
       supabase-storage--release_created: ${{ steps.release.outputs['gems/supabase-storage--release_created'] }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           token: ${{ secrets.GH_PAT }}
